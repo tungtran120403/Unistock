@@ -1,7 +1,7 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
-const API_URL = `${import.meta.env.VITE_API_URL}/auth`;
+const API_URL = `https://unistock.azurewebsites.net/api/unistock/auth`;
 
 // 🟢 **Cấu hình axios**
 const apiClient = axios.create({
