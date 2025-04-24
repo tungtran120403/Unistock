@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/unistock?createDatabaseIfNotExist=true
+    username: root
+    password: 1234
+#    url: jdbc:mysql://unistock.mysql.database.azure.com/unistock?sslMode=REQUIRED
+#    username: uniadmin
+#    password: Tst120403
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: tst12042003@gmail.com
+    password: dcdg uerg svgs pprg
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+
+app:
+  cors:
+    allowed-origins: "http://localhost:3000,https://ambitious-pond-081ad9500.6.azurestaticapps.net"
+  file:
+    images:
+      location: public/images/
+jwt:
+  secret: "YWJjZGVmZ2hpamtsbW5vcHFyc3R1d2V4eXoqc29uZ2hhaWNr"

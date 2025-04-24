@@ -1,0 +1,23 @@
+spring:
+  profiles:
+    active: dev
+
+  datasource:
+    url: ${PROFILE_URL} --placeholder
+    username: ${PROFILE_USERNAME}
+    password: ${PROFILE_PASS}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+#      ddl-auto: validate
+#      ddl-auto: create update
+        ddl-auto: update
+    database-platform: org.hibernate.dialect.MySQLDialect
+    show-sql: true
+#    generate-ddl: true
+
+azure:
+  storage:
+    connection-string: "DefaultEndpointsProtocol=https;AccountName=unistockimage;AccountKey=QYnWhs3wvvqYRtFGax5SE23GXDCHAurEdrlLseeVPNgZ4syc4RwbIQLCAx9BYSwMa9J1UldzHArk+AStMjSJhw==;EndpointSuffix=core.windows.net"
+    container-name: "product-images"
