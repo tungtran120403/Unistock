@@ -1,8 +1,8 @@
 import axios from "axios";
 
 // API endpoint for warehouses
-//const API_URL = `${import.meta.env.VITE_API_URL}/user/warehouses`;
-const API_URL = `http://localhost:8080/api/unistock/user/warehouses`;
+const API_URL = `${import.meta.env.VITE_API_URL}/user/warehouses`;
+// const API_URL = `http://localhost:8080/api/unistock/user/warehouses`;
 // take token from local storage
 const authHeader = () => {
   const token = localStorage.getItem("token");
@@ -112,7 +112,7 @@ export const checkWarehouseCode = async (warehouseCode, excludeId = null) => {
   try {
     const params = excludeId ? `?excludeId=${excludeId}` : "";
     const response = await axios.get(
-      `http://localhost:8080/api/unistock/user/warehouses/check-warehouse-code/${warehouseCode}${params}`,
+      `${API_URL}/user/warehouses/check-warehouse-code/${warehouseCode}${params}`,
       { headers: authHeader() }
     );
     return response.data.exists;
