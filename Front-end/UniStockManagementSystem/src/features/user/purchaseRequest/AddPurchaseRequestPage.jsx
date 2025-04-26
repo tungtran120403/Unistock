@@ -26,7 +26,6 @@ import PageHeader from '@/components/PageHeader';
 import TableSearch from '@/components/TableSearch';
 import { getAllMaterials } from "@/features/user/materials/materialService";
 
-
 const SUPPLIER_TYPE_ID = 2;
 
 const customStyles = {
@@ -58,8 +57,7 @@ const AddPurchaseRequestPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { addRequest, getNextCode } = usePurchaseRequest();
-  const { fromSaleOrder, saleOrderId, initialItems, usedProductsFromWarehouses = [] } = location.state || {};
-  const saleOrderCode = location.state?.saleOrderCode || "";
+  const { fromSaleOrder, saleOrderId, saleOrderCode, initialItems, usedProductsFromWarehouses = [], usedMaterialsFromWarehouses = [] } = location.state || {};
 
   const [requestCode, setRequestCode] = useState("");
   const [requestDate, setRequestDate] = useState(dayjs().format("YYYY-MM-DD"));
@@ -77,7 +75,7 @@ const AddPurchaseRequestPage = () => {
   const [billOfMaterialsError, setBillOfMaterialsError] = useState("");
   const [errors, setErrors] = useState({});
   const [materialSuppliers, setMaterialSuppliers] = useState({});
-  const [quantityValidationError, setQuantityValidationError] = useState(""); // Trạng thái lỗi cho kiểm tra quantity
+  const [quantityValidationError, setQuantityValidationError] = useState("");
 
   const selectRef = useRef(null);
 
@@ -95,6 +93,7 @@ const AddPurchaseRequestPage = () => {
       }
     };
     fetchNextCode();
+    console.log("🔍 usedMaterialsFromWarehouses from location.state:", JSON.stringify(usedMaterialsFromWarehouses, null, 2));
   }, []);
 
   useEffect(() => {
@@ -137,7 +136,6 @@ const AddPurchaseRequestPage = () => {
 
   useEffect(() => {
     if (initialItems) {
-      // Kiểm tra dữ liệu quantity trong initialItems
       const invalidItems = initialItems.filter((item) => {
         const quantity = Number(item.quantity);
         return (
@@ -156,7 +154,7 @@ const AddPurchaseRequestPage = () => {
         return;
       }
 
-      setQuantityValidationError(""); // Xóa lỗi nếu dữ liệu hợp lệ
+      setQuantityValidationError("");
 
       const suppliersMap = {};
       initialItems.forEach((item) => {
@@ -169,7 +167,7 @@ const AddPurchaseRequestPage = () => {
         }
       });
       setMaterialSuppliers(suppliersMap);
-      setItems(initialItems); // Cập nhật items sau khi kiểm tra
+      setItems(initialItems);
     }
   }, [initialItems]);
 
@@ -196,15 +194,15 @@ const AddPurchaseRequestPage = () => {
   };
 
   const handleSupplierChange = (index, selectedOption) => {
-    console.log("selectedOption: ", selectedOption)
+    console.log("selectedOption: ", selectedOption);
     setItems((prev) =>
       prev.map((item, idx) =>
         idx === index
           ? {
-            ...item,
-            supplierId: selectedOption?.value || "",
-            supplierName: selectedOption?.name || "",
-          }
+              ...item,
+              supplierId: selectedOption?.value || "",
+              supplierName: selectedOption?.name || "",
+            }
           : item
       )
     );
@@ -216,14 +214,14 @@ const AddPurchaseRequestPage = () => {
         prev.map((item, idx) =>
           idx === index
             ? {
-              ...item,
-              materialId: "",
-              materialCode: "",
-              materialName: "",
-              unitName: "",
-              supplierId: "",
-              supplierName: "",
-            }
+                ...item,
+                materialId: "",
+                materialCode: "",
+                materialName: "",
+                unitName: "",
+                supplierId: "",
+                supplierName: "",
+              }
             : item
         )
       );
@@ -240,14 +238,14 @@ const AddPurchaseRequestPage = () => {
       prev.map((item, idx) =>
         idx === index
           ? {
-            ...item,
-            materialId: material.materialId,
-            materialCode: material.materialCode,
-            materialName: material.materialName,
-            unitName: material.unitName,
-            supplierId: "",
-            supplierName: "",
-          }
+              ...item,
+              materialId: material.materialId,
+              materialCode: material.materialCode,
+              materialName: material.materialName,
+              unitName: material.unitName,
+              supplierId: "",
+              supplierName: "",
+            }
           : item
       )
     );
@@ -274,10 +272,10 @@ const AddPurchaseRequestPage = () => {
           prev.map((item, idx) =>
             idx === index
               ? {
-                ...item,
-                supplierId: mappedSuppliers[0].value,
-                supplierName: mappedSuppliers[0].name,
-              }
+                  ...item,
+                  supplierId: mappedSuppliers[0].value,
+                  supplierName: mappedSuppliers[0].name,
+                }
               : item
           )
         );
@@ -308,7 +306,6 @@ const AddPurchaseRequestPage = () => {
   const handleSaveRequest = async () => {
     if (loading) return;
 
-    // Không cho phép lưu nếu có lỗi kiểm tra quantity
     if (quantityValidationError) {
       alert(quantityValidationError);
       return;
@@ -352,6 +349,17 @@ const AddPurchaseRequestPage = () => {
 
     setLoading(true);
     try {
+      // Validate usedMaterialsFromWarehouses
+      if (usedMaterialsFromWarehouses.length > 0) {
+        const invalidMaterials = usedMaterialsFromWarehouses.filter(
+          (m) => !m.materialId || !m.warehouseId || !m.quantity || m.quantity <= 0
+        );
+        if (invalidMaterials.length > 0) {
+          console.error("🔍 Invalid usedMaterialsFromWarehouses:", JSON.stringify(invalidMaterials, null, 2));
+          throw new Error("Dữ liệu vật liệu từ kho không hợp lệ.");
+        }
+      }
+
       const formattedDate = `${requestDate}T00:00:00Z`;
       const payload = {
         purchaseRequestCode: requestCode,
@@ -370,12 +378,20 @@ const AddPurchaseRequestPage = () => {
           productId: u.productId,
           warehouseId: u.warehouseId,
           quantity: u.quantity,
-        }))
+        })),
+        usedMaterialsFromWarehouses: usedMaterialsFromWarehouses.map((m) => ({
+          materialId: m.materialId,
+          warehouseId: m.warehouseId,
+          quantity: m.quantity,
+        })),
       };
+
+      console.log("🔍 Payload sent to createPurchaseRequest:", JSON.stringify(payload, null, 2));
+
       await createPurchaseRequest(payload);
       navigate("/user/purchase-request", { state: { refresh: true, successMessage: "Tạo yêu cầu mua vật tư thành công!" } });
     } catch (error) {
-      console.error("Lỗi khi lưu yêu cầu:", error);
+      console.error("🔍 Lỗi khi lưu yêu cầu:", error);
       const errorMessage = error.response?.data?.message || "Có lỗi xảy ra khi lưu yêu cầu. Vui lòng thử lại!";
       setErrors({ message: errorMessage });
     } finally {
@@ -413,8 +429,8 @@ const AddPurchaseRequestPage = () => {
             onImport={() => {/* Xử lý import nếu có */ }}
             onExport={() => {/* Xử lý export file ở đây nếu có */ }}
             showAdd={false}
-            showImport={false} // Ẩn nút import nếu không dùng
-            showExport={false} // Ẩn xuất file nếu không dùng
+            showImport={false}
+            showExport={false}
           />
           {errors.message && (
             <Typography className="text-xs text-red-500 mb-4">{errors.message}</Typography>
@@ -513,7 +529,6 @@ const AddPurchaseRequestPage = () => {
           </div>
 
           <div className="py-2 flex items-center justify-between gap-2">
-            {/* Items per page */}
             <div className="flex items-center gap-2">
               <Typography variant="small" color="blue-gray" className="font-normal">
                 Hiển thị
@@ -537,14 +552,8 @@ const AddPurchaseRequestPage = () => {
               </Typography>
             </div>
 
-            {/* Search input */}
             <TableSearch
-              // value={searchTerm}
-              // onChange={setSearchTerm}
-              onSearch={() => {
-                // Thêm hàm xử lý tìm kiếm vào đây nếu có
-                (e) => setTableSearchQuery(e.target.value)
-              }}
+              onSearch={(e) => setTableSearchQuery(e.target.value)}
               placeholder="Tìm kiếm"
             />
 
@@ -553,7 +562,6 @@ const AddPurchaseRequestPage = () => {
                 {billOfMaterialsError}
               </Typography>
             )}
-
           </div>
           <div className="border border-gray-200 rounded mb-4 overflow-x-auto border-[rgba(224,224,224,1)]">
             <table className="w-full min-w-max text-left border-collapse border-[rgba(224,224,224,1)]">
@@ -658,8 +666,8 @@ const AddPurchaseRequestPage = () => {
                               value={
                                 item.supplierId
                                   ? materialSuppliers[item.materialId].find(
-                                    (s) => s.value === item.supplierId
-                                  ) || null
+                                      (s) => s.value === item.supplierId
+                                    ) || null
                                   : null
                               }
                               onChange={(event, selected) =>
@@ -703,8 +711,8 @@ const AddPurchaseRequestPage = () => {
                             value={
                               item.supplierId
                                 ? (materialSuppliers[item.materialId] || suppliers).find(
-                                  (s) => s.value === item.supplierId
-                                ) || null
+                                    (s) => s.value === item.supplierId
+                                  ) || null
                                 : null
                             }
                             onChange={(event, selected) =>
@@ -799,7 +807,7 @@ const AddPurchaseRequestPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-2 py-2 text-center text-gray-500">
+                    <td colSpan={7} className="px-2 py-2 text-center text-gray-500">
                       Chưa có dòng nào được thêm
                     </td>
                   </tr>
