@@ -13,6 +13,8 @@ public class ReceiveOutsourceMaterialDTO {
     private String materialCode;
     private String materialName;
     private Double quantity;
+    private Double receivedQuantity;
+    private Double remainingQuantity;
     private Long unitId;
     private String unitName;
     private Long warehouseId;

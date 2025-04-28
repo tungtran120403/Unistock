@@ -12,7 +12,21 @@ const Profile = () => {
     profile,
     isEditing,
     openChangePassword,
+    loading,
     error,
+    currentPassword,
+    setCurrentPassword,
+    newPassword,
+    setNewPassword,
+    confirmPassword,
+    setConfirmPassword,
+    errorCurrentPassword,
+    setErrorCurrentPassword,
+    errorNewPassword,
+    setErrorNewPassword,
+    errorConfirmPassword,
+    setErrorConfirmPassword,
+    resetPasswordForm,
     handleEdit,
     handleCancel,
     handleSave,
@@ -56,7 +70,6 @@ const Profile = () => {
                 ripple={true}
                 variant="contained"
                 onClick={() => {
-                  // Mở file dialog bằng cách trigger click vào input ẩn
                   fileInputRef.current && fileInputRef.current.click();
                 }}
               >
@@ -65,7 +78,6 @@ const Profile = () => {
                   <span className='pt-1'>Tải ảnh lên</span>
                 </div>
               </Button>
-              {/* Input ẩn để chọn file */}
               <input
                 type="file"
                 ref={fileInputRef}
@@ -149,7 +161,8 @@ const Profile = () => {
                     hiddenLabel
                     variant="outlined"
                     color="success"
-                    type="password"
+                    type="text" // Đổi thành text để hiển thị dấu sao
+                    value="********" // Giá trị cố định là 8 dấu sao
                     disabled
                     sx={{
                       width: '500px',
@@ -170,9 +183,12 @@ const Profile = () => {
                 </Typography>
                 {rolesArray.length > 0 ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {rolesArray.map((role, index) => (
-                      <Chip key={index} label={role} variant="outlined" color="primary" />
-                    ))}
+                    {rolesArray
+  .filter((role) => role.toLowerCase() !== "user")
+  .map((role, index) => (
+    <Chip key={index} label={role} variant="outlined" color="primary" />
+))}
+
                   </div>
                 ) : (
                   <Typography variant="body2">Không có vai trò</Typography>
@@ -217,6 +233,19 @@ const Profile = () => {
         open={openChangePassword}
         onClose={() => setOpenChangePassword(false)}
         onSave={handleChangePassword}
+        currentPassword={currentPassword}
+        setCurrentPassword={setCurrentPassword}
+        newPassword={newPassword}
+        setNewPassword={setNewPassword}
+        confirmPassword={confirmPassword}
+        setConfirmPassword={setConfirmPassword}
+        errorCurrentPassword={errorCurrentPassword}
+        setErrorCurrentPassword={setErrorCurrentPassword}
+        errorNewPassword={errorNewPassword}
+        setErrorNewPassword={setErrorNewPassword}
+        errorConfirmPassword={errorConfirmPassword}
+        setErrorConfirmPassword={setErrorConfirmPassword}
+        resetPasswordForm={resetPasswordForm}
       />
     </div>
   );

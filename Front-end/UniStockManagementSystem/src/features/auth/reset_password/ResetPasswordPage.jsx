@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 const ResetPassword = () => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState({ newPassword: '', confirmPassword: '', global: '' });
     const { handleResetPassword, loading, error: hookError } = useForgotPassword();
     const location = useLocation();
     const navigate = useNavigate();
@@ -31,21 +31,33 @@ const ResetPassword = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (newPassword !== confirmPassword) {
-            setError('Mật khẩu không trùng khớp!');
+        if (newPassword.trim() === '' && confirmPassword.trim() !== '') {
+            setError({ ...error, newPassword: 'Mật khẩu mới không được để trống!' });
+            return;
+        } else if (confirmPassword.trim() === '' && newPassword.trim() !== '') {
+            setError({ ...error, confirmPassword: 'Nhập lại mật khẩu mới không được để trống!' });
+            return;
+        } else if (newPassword.trim() === '' && confirmPassword.trim() === '') {
+            setError({ newPassword: 'Mật khẩu mới không được để trống!', confirmPassword: 'Nhập lại mật khẩu mới không được để trống!' });
+            return;
+        }
+
+        if (newPassword.trim() !== confirmPassword.trim()) {
+            setError({ ...error, confirmPassword: 'Mật khẩu không trùng khớp!' });
             return;
         }
 
         // Kiểm tra mật khẩu phải có ít nhất 8 ký tự, bao gồm cả số và chữ
         const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
         if (!regex.test(newPassword)) {
-            setError('Mật khẩu phải có ít nhất 8 ký tự, gồm cả số và chữ!');
+            const generalError = 'Mật khẩu phải có ít nhất 8 ký tự, bao gồm cả chữ và số!';
+            setError({ ...error, newPassword: generalError, confirmPassword: generalError });
             return;
         }
 
         // Kiểm tra email và ephemeralToken có tồn tại không
         if (!email || !ephemeralToken) {
-            setError("Thông tin xác thực không hợp lệ. Vui lòng thực hiện lại quy trình quên mật khẩu.");
+            setError({ ...error, global: 'Thông tin xác thực không hợp lệ. Vui lòng thực hiện lại quy trình quên mật khẩu.' });
             return;
         }
 
@@ -85,9 +97,18 @@ const ResetPassword = () => {
                                 variant="outlined"
                                 type="password"
                                 value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                required
+                                onChange={(e) => {
+                                    setNewPassword(e.target.value);
+                                    setError({ ...error, newPassword: '' }); // Reset lỗi khi người dùng nhập
+                                }}
+                                error={Boolean(error.newPassword)}
                             />
+                            {/* Hiển thị lỗi từ state */}
+                            {error.newPassword && (
+                                <Typography color="red" className="text-red-500 text-xs mt-1">
+                                    {error.newPassword}
+                                </Typography>
+                            )}
                         </div>
                         <div>
                             <Typography>Nhập lại mật khẩu</Typography>
@@ -99,12 +120,31 @@ const ResetPassword = () => {
                                 variant="outlined"
                                 type="password"
                                 value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                error={Boolean(error || hookError)}
-                                helperText={error || hookError}
-                                required
+                                onChange={(e) => {
+                                    setConfirmPassword(e.target.value);
+                                    setError({ ...error, confirmPassword: '' }); // Reset lỗi khi người dùng nhập
+                                }}
+                                error={Boolean(error.confirmPassword|| hookError)}
                             />
+                            {/* Hiển thị lỗi từ state */}
+                            {error.confirmPassword && (
+                                <Typography color="red" className="text-red-500 text-xs mt-1">
+                                    {error.confirmPassword}
+                                </Typography>
+                            )}
+                            {/* Hiển thị lỗi từ hook */}
+                            {hookError && (
+                                <Typography color="red" className="text-red-500">
+                                    {hookError}
+                                </Typography>
+                            )}
                         </div>
+                        {/* Hiển thị lỗi từ state */}
+                        {error.global && (
+                            <Typography color="red" className="text-red-500 text-xs mt-1">
+                                {error.global}
+                            </Typography>
+                        )}
                         <Button
                             fullWidth
                             type="submit"

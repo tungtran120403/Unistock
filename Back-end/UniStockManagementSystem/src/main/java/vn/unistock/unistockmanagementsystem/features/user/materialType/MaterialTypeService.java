@@ -10,9 +10,9 @@ import vn.unistock.unistockmanagementsystem.entities.MaterialType;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
@@ -38,16 +38,19 @@ public class MaterialTypeService {
     }
 
     @Transactional
-    public MaterialTypeDTO createMaterialType(MaterialTypeDTO dto, String createdBy) {
+    public MaterialTypeDTO createMaterialType(MaterialTypeDTO dto) {
+        // Chuẩn hóa name
+        String normalizedName = dto.getName().trim();
+
         // Kiểm tra trùng tên danh mục vật tư (case-insensitive)
-        materialTypeRepository.findByNameIgnoreCase(dto.getName())
+        materialTypeRepository.findByNameIgnoreCase(normalizedName)
                 .ifPresent(existingType -> {
-                    throw new ResponseStatusException(NOT_FOUND, "Tên danh mục vật tư '" + dto.getName() + "' đã tồn tại!");
+                    throw new ResponseStatusException(BAD_REQUEST, "Tên danh mục vật tư '" + normalizedName + "' đã tồn tại!");
                 });
 
+        // Cập nhật name đã chuẩn hóa
+        dto.setName(normalizedName);
         MaterialType materialType = materialTypeMapper.toEntity(dto);
-        materialType.setCreatedBy(createdBy);
-        materialType.setCreatedAt(LocalDateTime.now());
         materialType.setStatus(true);
 
         MaterialType saved = materialTypeRepository.save(materialType);
@@ -59,18 +62,19 @@ public class MaterialTypeService {
         MaterialType materialType = materialTypeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Không tìm thấy danh mục vật tư"));
 
+        // Chuẩn hóa name
+        String normalizedName = dto.getName().trim();
+
         // Kiểm tra trùng tên danh mục vật tư (case-insensitive), bỏ qua bản ghi hiện tại
-        if (!materialType.getName().equalsIgnoreCase(dto.getName())) {
-            materialTypeRepository.findByNameIgnoreCase(dto.getName())
+        if (!materialType.getName().equalsIgnoreCase(normalizedName)) {
+            materialTypeRepository.findByNameIgnoreCase(normalizedName)
                     .ifPresent(existingType -> {
-                        throw new ResponseStatusException(NOT_FOUND, "Tên danh mục vật tư '" + dto.getName() + "' đã tồn tại!");
+                        throw new ResponseStatusException(BAD_REQUEST, "Tên danh mục vật tư '" + normalizedName + "' đã tồn tại!");
                     });
         }
 
-        materialType.setName(dto.getName());
+        materialType.setName(normalizedName);
         materialType.setDescription(dto.getDescription());
-        materialType.setUpdatedAt(LocalDateTime.now());
-        materialType.setUpdatedBy("Admin");
 
         MaterialType saved = materialTypeRepository.save(materialType);
         return materialTypeMapper.toDTO(saved);
@@ -84,5 +88,15 @@ public class MaterialTypeService {
         materialType.setStatus(status);
         MaterialType saved = materialTypeRepository.save(materialType);
         return materialTypeMapper.toDTO(saved);
+    }
+
+    public boolean isNameExists(String name, Long excludeId) {
+        // Chuẩn hóa name
+        String normalizedName = name.trim();
+
+        if (excludeId != null) {
+            return materialTypeRepository.existsByNameAndMaterialTypeIdNot(normalizedName, excludeId);
+        }
+        return materialTypeRepository.existsByNameIgnoreCase(normalizedName);
     }
 }

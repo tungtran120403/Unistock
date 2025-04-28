@@ -71,7 +71,7 @@ const ViewReceiptNote = () => {
       minWidth: 100,
       renderCell: (params) => {
         const row = params.row;
-        return <div className="text-center">{row.materialCode || row.productCode || ""}</div>;
+        return <div>{row.materialCode || row.productCode || ""}</div>;
       }
     },
     {
@@ -80,7 +80,7 @@ const ViewReceiptNote = () => {
       minWidth: 150,
       renderCell: (params) => {
         const row = params.row;
-        return <div className="text-center">{row.materialName || row.productName || ""}</div>;
+        return <div>{row.materialName || row.productName || ""}</div>;
       }
     },
     {
@@ -89,7 +89,7 @@ const ViewReceiptNote = () => {
       minWidth: 80,
       renderCell: (params) => {
         const row = params.row;
-        return <div className="text-center">{row.unitName || "-"}</div>;
+        return <div>{row.unitName || "-"}</div>;
       }
     },
     {
@@ -99,7 +99,7 @@ const ViewReceiptNote = () => {
       renderCell: (params) => {
         const row = params.row;
         const quantity = row.quantity;
-        return <div className="text-center">{!isNaN(quantity) ? quantity : ""}</div>;
+        return <div>{!isNaN(quantity) ? quantity : ""}</div>;
       }
     },
     {
@@ -109,7 +109,7 @@ const ViewReceiptNote = () => {
       renderCell: (params) => {
         const row = params.row;
         return (
-          <div className="text-center">
+          <div>
             {row.warehouseCode && row.warehouseName
               ? `${row.warehouseCode} - ${row.warehouseName}`
               : ""}
@@ -414,23 +414,7 @@ const ViewReceiptNote = () => {
                   Xem chứng từ
                 </Link>
               ) : (
-                <TextField
-                  fullWidth
-                  size="small"
-                  color="success"
-                  variant="outlined"
-                  disabled
-                  value="Không có"
-                  sx={{
-                    '& .MuiInputBase-root.Mui-disabled': {
-                      bgcolor: '#eeeeee',
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        border: 'none',
-                      },
-                    },
-                  }}
-                />
-
+                <Typography variant="small" className="text-gray-600">Không có</Typography>
               )}
             </div>
             <div>

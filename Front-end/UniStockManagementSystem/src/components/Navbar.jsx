@@ -228,14 +228,27 @@ export function Navbar({ brandName, routes }) {
             <Menu>
               <MenuHandler>
                 <div className="flex items-center gap-2 cursor-pointer mr-2">
-                  <AccountCircle sx={{ fontSize: 40 }} className="text-blue-gray-500" />
+                  {/* <AccountCircle sx={{ fontSize: 40 }} className="text-blue-gray-500" /> */}
+                  <Avatar
+                    src={user.avatar}
+                    alt={user.email}
+                    size="sm"
+                    variant="circular"
+                    className="mr-2"
+                  />
                   <div className="flex flex-col text-start">
                     <Typography variant="h5" className="font-bold text-blue-gray-700">
                       {user.username}
                     </Typography>
-                    <Typography variant="small" className="text-blue-gray-700 text-[11px]">
-                      {user.roles?.join(', ')}
-                    </Typography>
+                    {user.roles && user.roles.filter(role => role.toLowerCase() !== "user").length > 0 && (
+  <Typography variant="small" className="text-blue-gray-700 text-[11px]">
+    {user.roles
+      .filter(role => role.toLowerCase() !== "user")
+      .join(", ")
+    }
+  </Typography>
+)}
+
                   </div>
                   <KeyboardArrowDown className="h-6 w-6 text-blue-gray-500" />
                 </div>

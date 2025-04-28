@@ -24,6 +24,7 @@ const usePurchaseOrder = () => {
   const fetchPaginatedOrders = async (page = currentPage, size = pageSize, search = searchKeyword, status = selectedStatus) => {
     try {
       const response = await fetchPurchaseOrders(page, size, search, status);
+      console.log("API Response:", response);
       setPurchaseOrders(response.data || []);
       setTotalPages(response.totalPages);
       setTotalElements(response.totalElements);
@@ -58,11 +59,6 @@ const usePurchaseOrder = () => {
       throw error;
     }
   };
-
-
-  useEffect(() => {
-    fetchPaginatedOrders();
-  }, [currentPage, pageSize, searchKeyword, selectedStatus]);
 
   return {
     purchaseOrders,

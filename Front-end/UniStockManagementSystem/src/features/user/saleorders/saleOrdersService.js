@@ -9,10 +9,19 @@ const authHeader = () => {
 };
 
 // 🟢 **Lấy danh sách Sale Orders (Hỗ trợ phân trang)**
-export const getSaleOrders = async (page, size) => {
+export const getSaleOrders = async (page, size, searchTerm, statuses, startDate, endDate) => {
   try {
+    const params = {
+      page,
+      size,
+      ...(searchTerm && { orderCode: searchTerm, partnerName: searchTerm }),
+      ...(statuses && statuses.length > 0 && { statuses: statuses.join(',') }),
+      ...(startDate && { startDate: dayjs(startDate).format('YYYY-MM-DD') }),
+      ...(endDate && { endDate: dayjs(endDate).format('YYYY-MM-DD') }),
+    };
+
     const response = await axios.get(API_URL, {
-      params: { page, size },
+      params,
       headers: authHeader(),
     });
     return response.data;

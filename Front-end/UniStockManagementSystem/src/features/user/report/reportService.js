@@ -1,8 +1,8 @@
 import axios from "axios";
 
 //báo cáo tồn kho
-// const API_URL_IN_RP = "http://localhost:8080/api/unistock/user/inventory";
-const API_URL_IN_RP = `${import.meta.env.VITE_API_URL}/user/inventory`;
+const API_URL_IN_RP = "http://localhost:8080/api/unistock/user/inventory";
+//const API_URL_IN_RP = `${import.meta.env.VITE_API_URL}/user/inventory`;
 
 const authHeader = () => {
   const token = localStorage.getItem("token");
@@ -53,8 +53,8 @@ export const getInventoryReportPaginated = ({
 };
 
 //báo cáo nhập kho
-// const API_URL_GRN_RP = "http://localhost:8080/api/unistock/user/receiptnote";
-const API_URL_GRN_RP = `${import.meta.env.VITE_API_URL}/user/receiptnote`;
+const API_URL_GRN_RP = "http://localhost:8080/api/unistock/user/receiptnote";
+//const API_URL_GRN_RP = `${import.meta.env.VITE_API_URL}/user/receiptnote`;
 export const getGoodReceiptReportPaginated = ({
   page = 0,
   size = 10,
@@ -94,8 +94,8 @@ export const getGoodReceiptReportPaginated = ({
 };
 
 //báo cáo xuất kho
-// const API_URL_GIN_RP = "http://localhost:8080/api/unistock/user/issuenote";
-const API_URL_GIN_RP = `${import.meta.env.VITE_API_URL}/user/issuenote`;
+const API_URL_GIN_RP = "http://localhost:8080/api/unistock/user/issuenote";
+//const API_URL_GIN_RP = `${import.meta.env.VITE_API_URL}/user/issuenote`;
 export const getGoodIssueReportPaginated = ({
   page = 0,
   size = 10,
@@ -138,9 +138,9 @@ export const getGoodIssueReportPaginated = ({
 };
 
 //báo cáo xuất nhập tồn
-// const API_URL_SM_RP = "http://localhost:8080/api/unistock/user/stockmovement";
-const API_URL_SM_RP = `${import.meta.env.VITE_API_URL}/user/stockmovement`;
-export const getStockMovementReportPaginated = ({
+const API_URL_SM_RP = "http://localhost:8080/api/unistock/user/stockmovement";
+//const API_URL_SM_RP = `${import.meta.env.VITE_API_URL}/user/stockmovement`;
+export const getStockMovementReportPaginated = async ({
   page = 0,
   size = 20,
   search = "",
@@ -148,7 +148,15 @@ export const getStockMovementReportPaginated = ({
   endDate = null,
   itemType = "",
   hasMovementOnly = null,
-  quantityFilters = {},
+  // Thay đổi params
+  minBegin = null,
+  maxBegin = null,
+  minIn = null,
+  maxIn = null,
+  minOut = null,
+  maxOut = null,
+  minEnd = null,
+  maxEnd = null,
 }) => {
   const token = localStorage.getItem("token");
   const params = new URLSearchParams();
@@ -161,24 +169,23 @@ export const getStockMovementReportPaginated = ({
   if (itemType) params.append("itemType", itemType);
   if (hasMovementOnly !== null) params.append("hasMovementOnly", hasMovementOnly);
 
-  // Gửi các filter số lượng
-  const quantityMap = {
-    beginQuantity: ["minBegin", "maxBegin"],
-    inQuantity: ["minIn", "maxIn"],
-    outQuantity: ["minOut", "maxOut"],
-    endQuantity: ["minEnd", "maxEnd"],
-  };
+  // Thêm các params cho quantity filters
+  if (minBegin !== null) params.append("minBegin", minBegin);
+  if (maxBegin !== null) params.append("maxBegin", maxBegin);
+  if (minIn !== null) params.append("minIn", minIn);
+  if (maxIn !== null) params.append("maxIn", maxIn);
+  if (minOut !== null) params.append("minOut", minOut);
+  if (maxOut !== null) params.append("maxOut", maxOut);
+  if (minEnd !== null) params.append("minEnd", minEnd);
+  if (maxEnd !== null) params.append("maxEnd", maxEnd);
 
-  for (const [key, [minKey, maxKey]] of Object.entries(quantityMap)) {
-    const filter = quantityFilters[key];
-    if (filter) {
-      if (filter.min != null) params.append(minKey, filter.min);
-      if (filter.max != null) params.append(maxKey, filter.max);
-    }
+  try {
+    const response = await axios.get(`${API_URL_SM_RP}/report?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response;
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || "Không thể tải báo cáo xuất nhập tồn. Vui lòng thử lại.";
+    throw new Error(errorMessage);
   }
-
-  return axios.get(`${API_URL_SM_RP}/report?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
 };
-

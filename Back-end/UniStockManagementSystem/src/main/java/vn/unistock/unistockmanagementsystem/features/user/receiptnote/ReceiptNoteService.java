@@ -16,12 +16,14 @@ import vn.unistock.unistockmanagementsystem.entities.*;
 import vn.unistock.unistockmanagementsystem.features.admin.user.UserRepository;
 import vn.unistock.unistockmanagementsystem.features.user.inventory.InventoryRepository;
 import vn.unistock.unistockmanagementsystem.features.user.inventory.InventoryTransactionRepository;
+import vn.unistock.unistockmanagementsystem.features.user.issueNote.ReceiveOutsourceRepository;
 import vn.unistock.unistockmanagementsystem.features.user.materials.MaterialsRepository;
 import vn.unistock.unistockmanagementsystem.features.user.products.ProductsRepository;
 import vn.unistock.unistockmanagementsystem.features.user.purchaseOrder.PurchaseOrderDTO;
 import vn.unistock.unistockmanagementsystem.features.user.purchaseOrder.PurchaseOrderDetailRepository;
 import vn.unistock.unistockmanagementsystem.features.user.purchaseOrder.PurchaseOrderRepository;
 import vn.unistock.unistockmanagementsystem.features.user.purchaseOrder.PurchaseOrderService;
+import vn.unistock.unistockmanagementsystem.features.user.saleOrders.SaleOrdersService;
 import vn.unistock.unistockmanagementsystem.features.user.units.UnitRepository;
 import vn.unistock.unistockmanagementsystem.features.user.warehouse.WarehouseRepository;
 import vn.unistock.unistockmanagementsystem.security.filter.CustomUserDetails;
@@ -53,9 +55,13 @@ public class ReceiptNoteService {
     @Autowired private ReceiptNoteDetailViewMapper detailViewMapper;
     @Autowired private PurchaseOrderDetailRepository purchaseOrderDetailRepository;
     @Autowired private ReceiptNoteDetailRepository detailRepository;
+    @Autowired
+    private ReceiveOutsourceRepository receiveOutsourceRepository;
+    @Autowired
+    private SaleOrdersService saleOrdersService;
 
     public Page<ReceiptNoteDTO> getAllReceiptNote(int page, int size, String search, List<String> categories, String startDate, String endDate) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "receiptDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "grnId"));
 
         // Xử lý khoảng thời gian
         LocalDateTime start = startDate != null && !startDate.isBlank() ? LocalDateTime.parse(startDate + "T00:00:00") : null;
@@ -104,6 +110,12 @@ public class ReceiptNoteService {
             CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
             User currentUser = userDetails.getUser();
 
+            // Validate payload
+            if (grnDto.getDetails() == null || grnDto.getDetails().isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phiếu nhập phải có ít nhất một chi tiết hàng hóa");
+            }
+
+            // Khởi tạo GoodReceiptNote
             GoodReceiptNote grn = GoodReceiptNote.builder()
                     .grnCode(grnDto.getGrnCode())
                     .description(grnDto.getDescription())
@@ -113,90 +125,141 @@ public class ReceiptNoteService {
                     .details(new ArrayList<>())
                     .build();
 
-            // Lưu đối tác nếu nhập hàng bán bị trả lại
+            // Lưu đối tác nếu có
             if (grnDto.getPartnerId() != null) {
                 Partner partner = Partner.builder().partnerId(grnDto.getPartnerId()).build();
                 grn.setPartner(partner);
             }
 
-            // Kiểm tra liên kết với SalesOrder qua PurchaseOrder
+            // Kiểm tra và lưu PurchaseOrder hoặc ReceiveOutsource
+            PurchaseOrder linkedPurchaseOrder = null;
+            ReceiveOutsource linkedOutsource = null;
             boolean hasSaleOrder = false;
+            boolean saleOrderCompleted = false;
+            SalesOrder linkedSaleOrder = null;
+
             if (grnDto.getPoId() != null) {
-                PurchaseOrder po = purchaseOrderRepository.findById(grnDto.getPoId())
-                        .orElseThrow(() -> new RuntimeException("Purchase order not found with ID: " + grnDto.getPoId()));
-                grn.setPurchaseOrder(po);
-                try {
-                    purchaseOrderService.getSaleOrderFromPurchaseOrder(po.getPoId());
-                    hasSaleOrder = true;
-                    logger.debug("PurchaseOrder ID {} is linked to a SalesOrder, setting hasSaleOrder = true", po.getPoId());
-                } catch (Exception ignored) {
-                    logger.debug("PurchaseOrder ID {} is not linked to a SalesOrder, hasSaleOrder = false", po.getPoId());
+                if ("Vật tư mua bán".equals(grnDto.getCategory())) {
+                    linkedPurchaseOrder = purchaseOrderRepository.findById(grnDto.getPoId())
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn mua không tồn tại với ID: " + grnDto.getPoId()));
+                    grn.setPurchaseOrder(linkedPurchaseOrder);
+                    try {
+                        linkedSaleOrder = purchaseOrderService.getSaleOrderEntityFromPurchaseOrder(linkedPurchaseOrder.getPoId());
+                        hasSaleOrder = true;
+                        saleOrderCompleted = linkedSaleOrder.getStatus() == SalesOrder.OrderStatus.COMPLETED
+                                || saleOrdersService.isSaleOrderFullyIssuedMaterial(linkedSaleOrder.getOrderId());
+                        logger.debug("PurchaseOrder ID {} linked to SalesOrder ID {}, saleOrderCompleted={}",
+                                linkedPurchaseOrder.getPoId(), linkedSaleOrder.getOrderId(), saleOrderCompleted);
+                    } catch (Exception ignored) {
+                        logger.debug("PurchaseOrder ID {} not linked to any SalesOrder", linkedPurchaseOrder.getPoId());
+                    }
+                } else if ("Hàng hóa gia công".equals(grnDto.getCategory())) {
+                    if ("Hàng hóa gia công".equals(grnDto.getCategory())) {
+                        linkedOutsource = receiveOutsourceRepository.findByGoodIssueNote_GinId(grnDto.getPoId())
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn gia công không tồn tại với GIN ID: " + grnDto.getPoId()));
+                        grn.setGoodIssueNote(linkedOutsource.getGoodIssueNote());
+                    }
+
+                } else {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Loại phiếu nhập không hợp lệ với poId");
                 }
             }
 
+            // Lưu GoodReceiptNote
             grn = receiptNoteRepository.save(grn);
             List<GoodReceiptDetail> details = new ArrayList<>();
 
+            // Xử lý chi tiết phiếu nhập
             for (ReceiptNoteDetailDTO detailDto : grnDto.getDetails()) {
                 logger.info("⏳ Processing detail: {}", detailDto);
 
+                // Validate warehouse
                 if (detailDto.getWarehouseId() == null) {
-                    throw new RuntimeException("warehouseId is required");
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "warehouseId is required");
                 }
-
                 Warehouse warehouse = warehouseRepository.findById(detailDto.getWarehouseId())
-                        .orElseThrow(() -> new RuntimeException("Warehouse not found with ID: " + detailDto.getWarehouseId()));
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Warehouse not found with ID: " + detailDto.getWarehouseId()));
 
+                // Khởi tạo GoodReceiptDetail
                 GoodReceiptDetail detail = GoodReceiptDetail.builder()
                         .warehouse(warehouse)
                         .quantity(detailDto.getQuantity())
                         .goodReceiptNote(grn)
                         .build();
 
+                // Xử lý unit
                 if (detailDto.getUnitId() != null) {
                     Unit unit = unitRepository.findById(detailDto.getUnitId())
-                            .orElseThrow(() -> new RuntimeException("Unit not found with ID: " + detailDto.getUnitId()));
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unit not found with ID: " + detailDto.getUnitId()));
                     detail.setUnit(unit);
                 }
 
+                // Xử lý material hoặc product
                 if (detailDto.getMaterialId() != null) {
                     Material material = materialRepository.findById(detailDto.getMaterialId())
-                            .orElseThrow(() -> new RuntimeException("Material not found with ID: " + detailDto.getMaterialId()));
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Material not found with ID: " + detailDto.getMaterialId()));
                     detail.setMaterial(material);
                     if (detail.getUnit() == null) detail.setUnit(material.getUnit());
-                    updateInventoryAndTransaction(warehouse, material, null, detailDto.getQuantity(), hasSaleOrder, grn);
+                    updateInventoryAndTransaction(warehouse, material, null, detailDto.getQuantity(), hasSaleOrder, saleOrderCompleted, linkedSaleOrder, grn);
 
-                    // Cập nhật PurchaseOrderDetail nếu có poId
-                    if (grnDto.getPoId() != null) {
-                        PurchaseOrderDetail pod = purchaseOrderDetailRepository.findByPurchaseOrderPoId(grnDto.getPoId()).stream()
+                    // Xử lý Vật tư mua bán
+                    if ("Vật tư mua bán".equals(grnDto.getCategory()) && linkedPurchaseOrder != null) {
+                        List<PurchaseOrderDetail> poDetails = purchaseOrderDetailRepository.findByPurchaseOrderPoId(grnDto.getPoId());
+                        if (poDetails.isEmpty()) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy chi tiết đơn mua cho ID: " + grnDto.getPoId());
+                        }
+                        PurchaseOrderDetail pod = poDetails.stream()
                                 .filter(d -> d.getMaterial().getMaterialId().equals(detailDto.getMaterialId()))
                                 .findFirst()
-                                .orElseThrow(() -> new RuntimeException("Không tìm thấy dòng đơn hàng ứng với vật tư ID: " + detailDto.getMaterialId()));
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy dòng đơn hàng ứng với vật tư ID: " + detailDto.getMaterialId()));
                         pod.setReceivedQuantity(pod.getReceivedQuantity() + detailDto.getQuantity().intValue());
                         purchaseOrderDetailRepository.save(pod);
                     }
+
+                    // Xử lý Hàng hóa gia công
+                    if ("Hàng hóa gia công".equals(grnDto.getCategory()) && linkedOutsource != null) {
+                        ReceiveOutsourceMaterial materialDetail = linkedOutsource.getMaterials().stream()
+                                .filter(m -> m.getMaterial().getMaterialId().equals(detailDto.getMaterialId()))
+                                .findFirst()
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy vật tư trong đơn gia công với ID: " + detailDto.getMaterialId()));
+                        double newReceived = (materialDetail.getReceivedQuantity() != null ? materialDetail.getReceivedQuantity() : 0) + detailDto.getQuantity();
+                        materialDetail.setReceivedQuantity(newReceived);
+                        materialDetail.setRemainingQuantity(materialDetail.getQuantity() - newReceived);
+                        receiveOutsourceRepository.save(linkedOutsource);
+                    }
+
                 } else if (detailDto.getProductId() != null) {
                     Product product = productRepository.findById(detailDto.getProductId())
-                            .orElseThrow(() -> new RuntimeException("Product not found with ID: " + detailDto.getProductId()));
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product not found with ID: " + detailDto.getProductId()));
                     detail.setProduct(product);
                     if (detail.getUnit() == null) detail.setUnit(product.getUnit());
-                    updateInventoryAndTransaction(warehouse, null, product, detailDto.getQuantity(), hasSaleOrder, grn);
+                    updateInventoryAndTransaction(warehouse, null, product, detailDto.getQuantity(), hasSaleOrder, saleOrderCompleted, linkedSaleOrder, grn);
                 } else {
-                    throw new RuntimeException("Chi tiết phiếu phải có sản phẩm hoặc vật tư.");
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chi tiết phiếu phải có sản phẩm hoặc vật tư");
                 }
                 details.add(detail);
             }
 
+            // Lưu chi tiết phiếu nhập
             goodReceiptDetailRepository.saveAll(details);
 
-            // Cập nhật trạng thái PurchaseOrder nếu có
+            // Cập nhật trạng thái PurchaseOrder hoặc ReceiveOutsource
             if (grnDto.getPoId() != null) {
-                List<PurchaseOrderDetail> poDetails = purchaseOrderDetailRepository.findByPurchaseOrderPoId(grnDto.getPoId());
-                boolean allReceived = poDetails.stream()
-                        .allMatch(detail -> detail.getOrderedQuantity() - detail.getReceivedQuantity() <= 0);
-                PurchaseOrder po = poDetails.get(0).getPurchaseOrder();
-                po.setStatus(allReceived ? PurchaseOrder.OrderStatus.COMPLETED : PurchaseOrder.OrderStatus.IN_PROGRESS);
-                purchaseOrderRepository.save(po);
+                if ("Vật tư mua bán".equals(grnDto.getCategory()) && linkedPurchaseOrder != null) {
+                    List<PurchaseOrderDetail> poDetails = purchaseOrderDetailRepository.findByPurchaseOrderPoId(grnDto.getPoId());
+                    if (poDetails.isEmpty()) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy chi tiết đơn mua cho ID: " + grnDto.getPoId());
+                    }
+                    boolean allReceived = poDetails.stream()
+                            .allMatch(detail -> detail.getOrderedQuantity() - detail.getReceivedQuantity() <= 0);
+                    linkedPurchaseOrder.setStatus(allReceived ? PurchaseOrder.OrderStatus.COMPLETED : PurchaseOrder.OrderStatus.IN_PROGRESS);
+                    purchaseOrderRepository.save(linkedPurchaseOrder);
+                } else if ("Hàng hóa gia công".equals(grnDto.getCategory()) && linkedOutsource != null) {
+                    boolean allReceived = linkedOutsource.getMaterials().stream()
+                            .allMatch(m -> m.getRemainingQuantity() == null || m.getRemainingQuantity() <= 0);
+                    linkedOutsource.setStatus(allReceived ? ReceiveOutsource.OutsourceStatus.COMPLETED : ReceiveOutsource.OutsourceStatus.IN_PROGRESS);
+                    receiveOutsourceRepository.save(linkedOutsource);
+                }
             }
 
             return receiptNoteMapper.toDTO(grn);
@@ -206,44 +269,63 @@ public class ReceiptNoteService {
         }
     }
 
-    private void updateInventoryAndTransaction(Warehouse warehouse, Material material, Product product, Double quantity, boolean hasSaleOrder, GoodReceiptNote grn) {
-        Inventory inventory = null;
+    private void updateInventoryAndTransaction(
+            Warehouse warehouse,
+            Material material,
+            Product product,
+            Double quantity,
+            boolean hasSaleOrder,
+            boolean saleOrderCompleted,
+            SalesOrder linkedSaleOrder,
+            GoodReceiptNote grn) {
+        Inventory inventory;
 
         if (material != null) {
-            // Xác định status cho material dựa trên hasSaleOrder
-            Inventory.InventoryStatus status = hasSaleOrder ? Inventory.InventoryStatus.RESERVED : Inventory.InventoryStatus.AVAILABLE;
+            Inventory.InventoryStatus status;
+            SalesOrder salesOrder = null;
 
-            // Sử dụng phương thức mới với status
-            inventory = inventoryRepository.findByWarehouseAndMaterialAndStatus(warehouse, material, status)
+            if (hasSaleOrder) {
+                if (saleOrderCompleted) {
+                    status = Inventory.InventoryStatus.AVAILABLE;
+                } else {
+                    status = Inventory.InventoryStatus.RESERVED;
+                    salesOrder = linkedSaleOrder;
+                }
+            } else {
+                status = Inventory.InventoryStatus.AVAILABLE;
+            }
+
+            inventory = inventoryRepository.findByWarehouseAndMaterialAndStatusAndSalesOrder(warehouse, material, status, salesOrder)
                     .orElse(null);
+
             if (inventory == null) {
                 inventory = Inventory.builder()
                         .warehouse(warehouse)
                         .material(material)
                         .status(status)
+                        .salesOrder(salesOrder)
                         .quantity(0.0)
                         .build();
             }
+
             inventory.setQuantity(inventory.getQuantity() + quantity);
-            inventory.setLastUpdated(LocalDateTime.now());
+            inventory.setLastUpdated(grn.getReceiptDate());
             inventoryRepository.save(inventory);
 
-            InventoryTransaction transaction = InventoryTransaction.builder()
+            inventoryTransactionRepository.save(InventoryTransaction.builder()
                     .warehouse(warehouse)
                     .material(material)
                     .transactionType(InventoryTransaction.TransactionType.IMPORT)
                     .quantity(quantity)
                     .goodReceiptNote(grn)
+                    .transactionDate(grn.getReceiptDate())
                     .referenceType(InventoryTransaction.NoteType.GOOD_RECEIPT_NOTE)
-                    .build();
-            inventoryTransactionRepository.save(transaction);
+                    .build());
         }
 
         if (product != null) {
-            // Luôn sử dụng status = AVAILABLE cho product
             Inventory.InventoryStatus status = Inventory.InventoryStatus.AVAILABLE;
 
-            // Sử dụng phương thức mới với status
             inventory = inventoryRepository.findByWarehouseAndProductAndStatus(warehouse, product, status)
                     .orElse(null);
             if (inventory == null) {
@@ -254,21 +336,23 @@ public class ReceiptNoteService {
                         .quantity(0.0)
                         .build();
             }
+
             inventory.setQuantity(inventory.getQuantity() + quantity);
             inventory.setLastUpdated(LocalDateTime.now());
             inventoryRepository.save(inventory);
 
-            InventoryTransaction transaction = InventoryTransaction.builder()
+            inventoryTransactionRepository.save(InventoryTransaction.builder()
                     .warehouse(warehouse)
                     .product(product)
                     .transactionType(InventoryTransaction.TransactionType.IMPORT)
                     .quantity(quantity)
                     .goodReceiptNote(grn)
+                    .transactionDate(grn.getReceiptDate())
                     .referenceType(InventoryTransaction.NoteType.GOOD_RECEIPT_NOTE)
-                    .build();
-            inventoryTransactionRepository.save(transaction);
+                    .build());
         }
     }
+
     @Transactional
     public String getNextReceiptCode() {
         try {

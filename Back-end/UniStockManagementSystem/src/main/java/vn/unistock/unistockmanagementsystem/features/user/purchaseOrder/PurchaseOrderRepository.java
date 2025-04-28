@@ -33,4 +33,18 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     @Query("SELECT p FROM PurchaseOrder p WHERE p.status IN ('PENDING', 'IN_PROGRESS')")
     List<PurchaseOrder> findPendingOrInProgressOrders();
 
+    @Query("""
+    SELECT p FROM PurchaseOrder p
+    LEFT JOIN p.partner supplier
+    LEFT JOIN p.purchaseRequest pr
+    WHERE (:search IS NULL OR LOWER(p.poCode) LIKE LOWER(CONCAT('%', :search, '%'))
+           OR LOWER(supplier.partnerName) LIKE LOWER(CONCAT('%', :search, '%'))
+           OR LOWER(pr.purchaseRequestCode) LIKE LOWER(CONCAT('%', :search, '%')))
+      AND (:status IS NULL OR p.status = :status)
+""")
+    Page<PurchaseOrder> searchFilteredOrders(@Param("search") String search,
+                                             @Param("status") PurchaseOrder.OrderStatus status,
+                                             Pageable pageable);
+
+
 }

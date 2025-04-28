@@ -31,7 +31,6 @@ public class InventoryTransaction {
     @JoinColumn(name = "product_id")
     private Product product;
 
-    @CreationTimestamp
     private LocalDateTime transactionDate;
 
     @Enumerated(EnumType.STRING)

@@ -2,16 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     Card,
-    CardHeader,
     CardBody,
     Typography,
     Button,
-    Input,
 } from "@material-tailwind/react";
 import { TextField, Button as MuiButton, Divider, Autocomplete, IconButton } from '@mui/material';
 import { FaEdit, FaArrowLeft, FaSave, FaTimes, FaPlus, FaTrash, FaTimesCircle } from "react-icons/fa";
 import { getProductById, updateProduct, fetchProductTypes, checkProductCodeExists } from "./productService";
 import { fetchActiveUnits } from "../unit/unitService";
+import { getAllActiveMaterials, getAllMaterials } from "../materials/materialService";
 import axios from "axios";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { HighlightOffRounded } from '@mui/icons-material';
@@ -34,18 +33,18 @@ const DetailProductPage = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [units, setUnits] = useState([]);
     const [productTypes, setProductTypes] = useState([]);
-    const [materials, setMaterials] = useState([]);
+    const [activeMaterials, setActiveMaterials] = useState([]); // Chỉ vật tư active
+    const [allMaterials, setAllMaterials] = useState([]); // Tất cả vật tư (active + deactive)
     const [editedProduct, setEditedProduct] = useState(null);
     const [loading, setLoading] = useState(false);
     const [initialValues, setInitialValues] = useState(null);
     const [errors, setErrors] = useState({});
     const [validationErrors, setValidationErrors] = useState({});
-    const [productCodeError, setProductCodeError] = useState(""); // State cho lỗi trùng mã
+    const [productCodeError, setProductCodeError] = useState("");
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(5);
     const [previewImage, setPreviewImage] = useState(null);
     const [tableSearchQuery, setTableSearchQuery] = useState("");
-    const [currentRow, setCurrentRow] = useState(-1);
     const [quantityErrors, setQuantityErrors] = useState({});
     const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
@@ -53,47 +52,74 @@ const DetailProductPage = () => {
         const fetchData = async () => {
             try {
                 const productData = await getProductById(id);
-                console.log("📌 Product Data:", productData);
-
                 const activeProductTypes = await fetchProductTypes();
+                const activeUnits = await fetchActiveUnits();
+                const activeMaterialsData = await getAllActiveMaterials();
+                const allMaterialsResponse = await getAllMaterials(0, 1000); // Lấy tất cả vật tư
+
+                console.log("📌 Active Materials Response:", activeMaterialsData);
+                console.log("📌 All Materials Response:", allMaterialsResponse);
+
+                const mappedActiveMaterials = Array.isArray(activeMaterialsData)
+                    ? activeMaterialsData.map(m => ({
+                        materialId: m.materialId,
+                        materialCode: m.materialCode,
+                        materialName: m.materialName,
+                        unitName: m.unitName,
+                    }))
+                    : [];
+
+                const mappedAllMaterials = Array.isArray(allMaterialsResponse.materials)
+                    ? allMaterialsResponse.materials.map(m => ({
+                        materialId: m.materialId,
+                        materialCode: m.materialCode,
+                        materialName: m.materialName,
+                        unitName: m.unitName,
+                    }))
+                    : [];
+
+                mappedAllMaterials.forEach(material => {
+                    console.log(`📌 Material ID: ${material.materialId}, Unit Name: ${material.unitName}`);
+                });
+
+                const unitExists = activeUnits.some(unit => unit.unitId === productData.unitId);
+                if (!unitExists && productData.unitId && productData.unitName) {
+                    activeUnits.push({ unitId: productData.unitId, unitName: productData.unitName });
+                }
+
+                const typeExists = activeProductTypes.some(type => type.typeId === productData.typeId);
+                if (!typeExists && productData.typeId && productData.typeName) {
+                    activeProductTypes.push({ typeId: productData.typeId, typeName: productData.typeName });
+                }
+
+                setUnits(activeUnits);
+                setProductTypes(activeProductTypes);
+                setActiveMaterials(mappedActiveMaterials);
+                setAllMaterials(mappedAllMaterials);
+
                 const matchingType = activeProductTypes.find(
-                    (type) => type.typeName === productData.typeName
+                    (type) => type.typeId === productData.typeId || type.typeName === productData.typeName
                 );
 
                 const updatedProductData = {
                     ...productData,
                     typeId: matchingType ? matchingType.typeId : "",
-                    typeName: productData.typeName,
+                    typeName: matchingType ? matchingType.typeName : productData.typeName,
+                    materials: [],
                 };
 
                 setProduct(updatedProductData);
                 setEditedProduct(updatedProductData);
                 setInitialValues(updatedProductData);
 
-                const [unitsData, materialsData] = await Promise.all([
-                    fetchActiveUnits(),
-                    axios.get(`${import.meta.env.VITE_API_URL}/user/materials`, {
-                        headers: authHeader(),
-                        withCredentials: true,
-                    }).then(res => res.data.content || []),
-                ]);
-
-                setUnits(unitsData);
-                setProductTypes(activeProductTypes);
-                setMaterials(materialsData);
+                await fetchProductMaterials(id);
             } catch (error) {
-                console.error("❌ Error:", error);
+                console.error("❌ Error fetching data:", error);
             }
         };
 
         fetchData();
     }, [id]);
-
-    useEffect(() => {
-        if (materials.length > 0 && id) {
-            fetchProductMaterials(id);
-        }
-    }, [materials, id]);
 
     useEffect(() => {
         return () => {
@@ -113,17 +139,12 @@ const DetailProductPage = () => {
             console.log("📌 API Product Materials Response:", response.data);
 
             if (response.data && Array.isArray(response.data.content)) {
-                const updatedMaterials = response.data.content.map(pm => {
-                    const materialData = materials.find(m => m.materialId === pm.materialId);
-                    return {
-                        materialId: pm.materialId,
-                        materialCode: pm.materialCode,
-                        materialName: pm.materialName,
-                        quantity: pm.quantity,
-                    };
-                });
-
-                console.log("📌 Updated Materials:", updatedMaterials);
+                const updatedMaterials = response.data.content.map(pm => ({
+                    materialId: pm.materialId,
+                    materialCode: pm.materialCode,
+                    materialName: pm.materialName,
+                    quantity: pm.quantity,
+                }));
 
                 setEditedProduct(prev => ({
                     ...prev,
@@ -215,44 +236,50 @@ const DetailProductPage = () => {
             try {
                 setLoading(true);
 
-                const dataToSend = {
-                    ...editedProduct,
-                    materials: editedProduct.materials.map(material => ({
+                const formData = new FormData();
+                formData.append("productCode", editedProduct.productCode);
+                formData.append("productName", editedProduct.productName);
+                formData.append("description", editedProduct.description || "");
+                formData.append("unitId", editedProduct.unitId || "");
+                formData.append("typeId", editedProduct.typeId || "");
+                formData.append("isProductionActive", editedProduct.isProductionActive ?? true);
+                formData.append("materials", JSON.stringify(
+                    editedProduct.materials.map(material => ({
                         materialId: material.materialId,
                         quantity: material.quantity,
                         materialCode: material.materialCode,
                         materialName: material.materialName,
-                    })),
-                };
+                    }))
+                ));
 
-                const updatedProductData = await updateProduct(id, dataToSend);
+                if (previewImage && editedProduct.image) {
+                    formData.append("image", editedProduct.image);
+                }
 
-                const matchingType = productTypes.find(
-                    (type) => type.typeName === updatedProductData.typeName
+                if (!previewImage && !editedProduct.image && !editedProduct.imageUrl) {
+                    formData.append("deleteImage", true);
+                }
+
+                await axios.put(
+                    `${import.meta.env.VITE_API_URL}/user/products/${id}`,
+                    formData,
+                    {
+                        headers: {
+                            "Content-Type": "multipart/form-data",
+                            ...authHeader()
+                        }
+                    }
                 );
-                setProduct({
-                    ...updatedProductData,
-                    typeId: matchingType ? matchingType.typeId : "",
-                    typeName: updatedProductData.typeName,
-                });
-                setEditedProduct({
-                    ...updatedProductData,
-                    typeId: matchingType ? matchingType.typeId : "",
-                    typeName: updatedProductData.typeName,
-                });
-                setInitialValues({
-                    ...updatedProductData,
-                    typeId: matchingType ? matchingType.typeId : "",
-                    typeName: updatedProductData.typeName,
-                });
 
-                await fetchProductMaterials(id);
-
+                const updatedProduct = await getProductById(id);
+                setProduct(updatedProduct);
+                setEditedProduct(updatedProduct);
+                setInitialValues(updatedProduct);
                 setIsEditing(false);
-                setPreviewImage(null);
                 setShowSuccessAlert(true);
+                setPreviewImage(null);
             } catch (error) {
-                console.error("❌ Error:", error.response?.data || error.message);
+                console.error("❌ Lỗi lưu sản phẩm:", error);
                 alert("Lỗi khi cập nhật sản phẩm: " + (error.response?.data?.message || error.message));
             } finally {
                 setLoading(false);
@@ -261,13 +288,21 @@ const DetailProductPage = () => {
     };
 
     const handleAddRow = () => {
-        setEditedProduct((prev) => ({
-            ...prev,
-            materials: [
+        setEditedProduct((prev) => {
+            const newMaterials = [
                 ...prev.materials,
                 { materialId: "", materialCode: "", materialName: "", quantity: 1 },
-            ],
-        }));
+            ];
+
+            // Tính toán trang cuối để chuyển đến sau khi thêm dòng
+            const lastPage = Math.ceil(newMaterials.length / pageSize) - 1;
+            setCurrentPage(lastPage);
+
+            return {
+                ...prev,
+                materials: newMaterials,
+            };
+        });
     };
 
     const handleRemoveRow = (index) => {
@@ -292,35 +327,40 @@ const DetailProductPage = () => {
 
     const getFilteredMaterials = () => {
         if (!editedProduct?.materials) return [];
+        // Nếu không có search query, trả về toàn bộ materials
+        if (!tableSearchQuery.trim()) {
+            return editedProduct.materials;
+        }
+        // Nếu có search query, lọc các dòng có materialCode hoặc materialName khớp
         return editedProduct.materials.filter(item => {
             const searchLower = tableSearchQuery.toLowerCase().trim();
             return (
-                item.materialCode?.toLowerCase().includes(searchLower) ||
-                item.materialName?.toLowerCase().includes(searchLower)
+                (item.materialCode && item.materialCode.toLowerCase().includes(searchLower)) ||
+                (item.materialName && item.materialName.toLowerCase().includes(searchLower))
             );
         });
     };
 
     const getPaginatedData = () => {
-        const filteredData = getFilteredMaterials();
+        // Lấy toàn bộ dữ liệu từ editedProduct.materials thay vì dữ liệu đã lọc
+        const allData = editedProduct?.materials || [];
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
-        return filteredData.slice(startIndex, endIndex);
+        return allData.slice(startIndex, endIndex);
     };
 
     const handlePageChange = (selectedItem) => {
         setCurrentPage(selectedItem.selected);
     };
 
-    const getAvailableMaterials = (currentIndex) => {
-        if (!editedProduct?.materials) return materials;
-
-        const selectedMaterialIds = editedProduct.materials
-            .filter((_, idx) => idx !== currentIndex)
-            .map(m => m.materialId);
-
-        return materials.filter(m => !selectedMaterialIds.includes(m.materialId));
+    const getAvailableMaterials = (currentRowIndex) => {
+        if (!activeMaterials || activeMaterials.length === 0) return [];
+        const selectedMaterialIds = editedProduct?.materials
+            ?.filter((item, idx) => idx !== currentRowIndex && item.materialId)
+            .map(m => m.materialId) || [];
+        return activeMaterials.filter(m => !selectedMaterialIds.includes(m.materialId));
     };
+
 
     const handleMaterialChange = (index, selected) => {
         if (!selected) return;
@@ -369,42 +409,31 @@ const DetailProductPage = () => {
         }));
     };
 
-    const headerButtons = (
-        <div className="flex gap-2">
-            <Button
-                variant="text"
-                color="gray"
-                size="sm"
-                onClick={() => navigate("/user/products")}
-                className="flex items-center gap-2"
-            >
-                <FaArrowLeft className="h-3 w-3" /> Quay lại
-            </Button>
-            {!isEditing && (
-                <Button
-                    variant="gradient"
-                    color="blue"
-                    size="sm"
-                    onClick={handleEdit}
-                    className="flex items-center gap-2"
-                >
-                    <FaEdit className="h-3 w-3" /> Chỉnh sửa
-                </Button>
-            )}
-        </div>
-    );
-
     const getTableData = () => {
-        return getPaginatedData().map((item, index) => ({
-            ...item,
-            id: `${currentPage * pageSize + index + 1}`,
-            index: currentPage * pageSize + index + 1,
-            materialId: item.materialId,
-            materialCode: item.materialCode,
-            materialName: item.materialName,
-            quantity: item.quantity,
-            unitName: materials.find(m => m.materialId === item.materialId)?.unitName || "",
-        }));
+        const paginatedData = getPaginatedData();
+        return paginatedData.map((item, index) => {
+            // Tính STT dựa trên vị trí trong trang hiện tại
+            const pageIndex = currentPage * pageSize + index + 1;
+
+            // Tính actualIndex dựa trên vị trí trong mảng gốc editedProduct.materials
+            const actualIndex = (currentPage * pageSize) + index;
+
+            const matchedMaterial = allMaterials.find(m => m.materialId === item.materialId);
+
+            console.log(`📌 Material ID: ${item.materialId}, Matched Material:`, matchedMaterial);
+
+            return {
+                ...item,
+                id: item.materialId || `new-${actualIndex}`,
+                index: pageIndex, // STT hiển thị trong bảng
+                actualIndex: actualIndex, // Sử dụng vị trí trong mảng gốc
+                materialId: item.materialId,
+                materialCode: item.materialCode,
+                materialName: item.materialName,
+                quantity: item.quantity,
+                unitName: matchedMaterial?.unitName || "",
+            };
+        });
     };
 
     const columnsConfig = [
@@ -420,10 +449,15 @@ const DetailProductPage = () => {
                 isEditing ? (
                     <Autocomplete
                         sx={{ width: '100%', paddingY: '0.5rem' }}
-                        options={getAvailableMaterials(params.row.index - 1)}
+                        options={getAvailableMaterials(params.row.actualIndex)}
                         size="small"
                         getOptionLabel={(option) =>
-                            `${option.materialCode} - ${option.materialName}`
+                            option && option.materialCode
+                                ? `${option.materialCode} - ${option.materialName}`
+                                : ""
+                        }
+                        isOptionEqualToValue={(option, value) =>
+                            option && value ? option.materialId === value.materialId : false
                         }
                         value={
                             params.row.materialId
@@ -436,7 +470,7 @@ const DetailProductPage = () => {
                         }
                         onChange={(event, selectedMaterial) => {
                             if (selectedMaterial) {
-                                handleMaterialChange(params.row.index - 1, selectedMaterial);
+                                handleMaterialChange(params.row.actualIndex, selectedMaterial);
                             }
                         }}
                         renderInput={(params) => (
@@ -453,8 +487,28 @@ const DetailProductPage = () => {
                 )
             ),
         },
-        { field: 'materialName', headerName: 'Tên NVL', flex: 2, minWidth: 400, editable: false, filterable: false },
-        { field: 'unitName', headerName: 'Đơn vị', flex: 1, minWidth: 100, editable: false, filterable: false },
+        {
+            field: 'materialName',
+            headerName: 'Tên NVL',
+            flex: 2,
+            minWidth: 400,
+            editable: false,
+            filterable: false,
+            renderCell: (params) => (
+                <div className="px-3">{params.value}</div>
+            ),
+        },
+        {
+            field: 'unitName',
+            headerName: 'Đơn vị',
+            flex: 1,
+            minWidth: 100,
+            editable: false,
+            filterable: false,
+            renderCell: (params) => (
+                <div className="px-3">{params.value}</div>
+            ),
+        },
         {
             field: 'quantity',
             headerName: 'Số lượng',
@@ -463,33 +517,36 @@ const DetailProductPage = () => {
             editable: false,
             filterable: false,
             renderCell: (params) => (
-                <div className="w-full py-2">
-                    <TextField
-                        type="number"
-                        size="small"
-                        fullWidth
-                        disabled={!isEditing}
-                        inputProps={{ min: 1 }}
-                        value={params.value || ''}
-                        onChange={(e) => handleQuantityChange(params.row.index - 1, e.target.value)}
-                        color="success"
-                        hiddenLabel
-                        placeholder="0"
-                        sx={{
-                            '& .MuiInputBase-root.Mui-disabled': {
-                                bgcolor: '#eeeeee',
-                                '& .MuiOutlinedInput-notchedOutline': {
-                                    border: 'none',
+                isEditing ? (
+                    <div className="w-full py-2">
+                        <TextField
+                            type="number"
+                            size="small"
+                            fullWidth
+                            inputProps={{ min: 1 }}
+                            value={params.value || ''}
+                            onChange={(e) => handleQuantityChange(params.row.actualIndex, e.target.value)}
+                            color="success"
+                            hiddenLabel
+                            placeholder="0"
+                            sx={{
+                                '& .MuiInputBase-root': {
+                                    bgcolor: '#ffffff',
                                 },
-                            },
-                        }}
-                    />
-                    {isEditing && quantityErrors[params.row.index - 1] && (
-                        <div className="text-xs text-red-500 mt-1">
-                            {quantityErrors[params.row.index - 1]}
-                        </div>
-                    )}
-                </div>
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    border: '1px solid #e0e0e0',
+                                },
+                            }}
+                        />
+                        {quantityErrors[params.row.actualIndex] && (
+                            <div className="text-xs text-red-500 mt-1">
+                                {quantityErrors[params.row.actualIndex]}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="px-3 py-2">{params.value || '0'}</div>
+                )
             ),
         },
         {
@@ -504,7 +561,7 @@ const DetailProductPage = () => {
                     <IconButton
                         size="small"
                         color="error"
-                        onClick={() => handleRemoveRow(params.row.index - 1)}
+                        onClick={() => handleRemoveRow(params.row.actualIndex)}
                     >
                         <HighlightOffRounded />
                     </IconButton>
@@ -525,7 +582,6 @@ const DetailProductPage = () => {
                         showImport={false}
                         showExport={false}
                     />
-
                     <div className="grid grid-cols-2 gap-x-12 gap-y-4">
                         <div className="flex flex-col gap-4">
                             <div>
@@ -558,7 +614,6 @@ const DetailProductPage = () => {
                                     </Typography>
                                 )}
                             </div>
-
                             <div>
                                 <Typography variant="medium" className="mb-1 text-black">
                                     Đơn vị
@@ -568,9 +623,7 @@ const DetailProductPage = () => {
                                     options={units}
                                     size="small"
                                     getOptionLabel={(option) => option.unitName || ""}
-                                    value={
-                                        units.find((unit) => unit.unitId === editedProduct?.unitId) || null
-                                    }
+                                    value={units.find((unit) => unit.unitId === editedProduct?.unitId) || null}
                                     onChange={(event, selectedUnit) => {
                                         setEditedProduct({
                                             ...editedProduct,
@@ -601,7 +654,6 @@ const DetailProductPage = () => {
                                     </Typography>
                                 )}
                             </div>
-
                             <div>
                                 <Typography variant="medium" className="mb-1 text-black">
                                     Mô tả
@@ -630,7 +682,6 @@ const DetailProductPage = () => {
                                 />
                             </div>
                         </div>
-
                         <div className="flex flex-col gap-4">
                             <div>
                                 <Typography variant="medium" className="mb-1 text-black">
@@ -664,7 +715,6 @@ const DetailProductPage = () => {
                                     </Typography>
                                 )}
                             </div>
-
                             <div>
                                 <Typography variant="medium" className="mb-1 text-black">
                                     Dòng sản phẩm
@@ -674,11 +724,7 @@ const DetailProductPage = () => {
                                     options={productTypes}
                                     size="small"
                                     getOptionLabel={(option) => option.typeName || ""}
-                                    value={
-                                        productTypes.find(
-                                            (type) => type.typeId === editedProduct?.typeId
-                                        ) || null
-                                    }
+                                    value={productTypes.find((type) => type.typeId === editedProduct?.typeId) || null}
                                     onChange={(event, selectedType) => {
                                         setEditedProduct({
                                             ...editedProduct,
@@ -710,7 +756,6 @@ const DetailProductPage = () => {
                                     </Typography>
                                 )}
                             </div>
-
                             <div>
                                 <Typography variant="medium" className="mb-1 text-black">
                                     Hình ảnh sản phẩm
@@ -755,18 +800,15 @@ const DetailProductPage = () => {
                             </div>
                         </div>
                     </div>
-
                     <div className="mt-8">
                         <Typography variant="h6" color="blue-gray" className="mb-4">
                             Định mức nguyên vật liệu
                         </Typography>
-
                         {validationErrors.materials && (
                             <Typography className="text-xs text-red-500 mb-2">
                                 {validationErrors.materials}
                             </Typography>
                         )}
-
                         <div className="flex items-center justify-between gap-4 mb-4">
                             <div className="flex items-center gap-2">
                                 <Typography variant="small" color="blue-gray" className="font-normal">
@@ -788,7 +830,6 @@ const DetailProductPage = () => {
                                     bản ghi mỗi trang
                                 </Typography>
                             </div>
-
                             <TableSearch
                                 value={tableSearchQuery}
                                 onChange={setTableSearchQuery}
@@ -796,26 +837,24 @@ const DetailProductPage = () => {
                                 placeholder="Tìm kiếm trong danh sách"
                             />
                         </div>
-
                         <Table
                             data={getTableData()}
                             columnsConfig={columnsConfig}
                             enableSelection={false}
                         />
-
                         {editedProduct?.materials?.length > 0 && (
                             <div className="flex items-center justify-between border-t border-blue-gray-50 pt-4 pb-2">
                                 <div className="flex items-center gap-2">
                                     <Typography variant="small" color="blue-gray" className="font-normal">
-                                        Trang {currentPage + 1} / {Math.ceil(getFilteredMaterials().length / pageSize)} •{" "}
-                                        {getFilteredMaterials().length} dòng
+                                        Trang {currentPage + 1} / {Math.ceil((editedProduct?.materials?.length || 0) / pageSize)} •{" "}
+                                        {(editedProduct?.materials?.length || 0)} dòng
                                     </Typography>
                                 </div>
                                 <ReactPaginate
                                     previousLabel={<ArrowLeftIcon strokeWidth={2} className="h-4 w-4" />}
                                     nextLabel={<ArrowRightIcon strokeWidth={2} className="h-4 w-4" />}
                                     breakLabel="..."
-                                    pageCount={Math.ceil(getFilteredMaterials().length / pageSize)}
+                                    pageCount={Math.ceil((editedProduct?.materials?.length || 0) / pageSize)}
                                     marginPagesDisplayed={2}
                                     pageRangeDisplayed={5}
                                     onPageChange={handlePageChange}
@@ -831,7 +870,6 @@ const DetailProductPage = () => {
                                 />
                             </div>
                         )}
-
                         {isEditing && (
                             <div className="flex gap-2 mb-4 h-8">
                                 <MuiButton

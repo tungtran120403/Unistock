@@ -538,4 +538,14 @@ public class PurchaseRequestService {
         return requests.stream().allMatch(req -> req.getStatus() == PurchaseRequest.RequestStatus.CANCELLED);
     }
 
+    @Transactional
+    public void markRequestAsPurchased(Long purchaseRequestId) {
+        PurchaseRequest request = purchaseRequestRepository.findById(purchaseRequestId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu mua vật tư với ID: " + purchaseRequestId));
+
+        request.setStatus(PurchaseRequest.RequestStatus.PURCHASED);
+        request.setUpdatedAt(LocalDateTime.now());
+        purchaseRequestRepository.save(request);
+    }
+
 }

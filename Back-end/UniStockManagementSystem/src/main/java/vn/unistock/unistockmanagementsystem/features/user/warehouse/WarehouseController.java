@@ -84,15 +84,15 @@ public class WarehouseController {
         return ResponseEntity.ok(usedCategories);
     }
 
-    @GetMapping("/check-warehouse-code/{warehouseCode}")
-    public ResponseEntity<Map<String, Boolean>> checkWarehouseCode(
-            @PathVariable String warehouseCode,
+    @GetMapping("/check-name-and-code")
+    public ResponseEntity<Map<String, Boolean>> checkWarehouseNameAndCode(
+            @RequestParam String warehouseName,
+            @RequestParam String warehouseCode,
             @RequestParam(required = false) Long excludeId
     ) {
-        boolean exists = warehouseService.isWarehouseCodeExists(warehouseCode, excludeId);
-        Map<String, Boolean> response = new HashMap<>();
-        response.put("exists", exists);
-        return ResponseEntity.ok(response);
+        Map<String, Boolean> result = warehouseService.checkWarehouseNameAndCode(warehouseName, warehouseCode, excludeId);
+        return ResponseEntity.ok(result);
     }
+
 
 }

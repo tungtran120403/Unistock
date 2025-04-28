@@ -2,10 +2,13 @@ package vn.unistock.unistockmanagementsystem.features.user.saleOrders;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import vn.unistock.unistockmanagementsystem.entities.SalesOrder;
 
+import java.util.Date;
 import java.util.List;
 
 @RestController
@@ -17,11 +20,15 @@ public class SaleOrdersController {
 
 
     @GetMapping
-    public ResponseEntity<Page<SaleOrdersDTO>> getAllOrders(
+    public ResponseEntity<Page<SaleOrdersDTO>> getFilteredOrders(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
-        return ResponseEntity.ok(saleOrdersService.getAllOrders(page, size));
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String partnerName,
+            @RequestParam(required = false) List<SalesOrder.OrderStatus> statuses,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Date endDate) {
+        return ResponseEntity.ok(saleOrdersService.getFilteredOrders(orderCode, partnerName, statuses, startDate, endDate, page, size));
     }
 
     @GetMapping("/next-code")

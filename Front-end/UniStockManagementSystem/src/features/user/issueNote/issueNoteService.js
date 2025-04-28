@@ -165,3 +165,16 @@ export const createIssueNote = async (issueNote) => {
       throw error;
     }
   };
+
+  export const getPendingOrInProgressReceiveOutsources = async () => {
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/user/issuenote/receive-outsource/pending-in-progress`, {
+        headers: authHeader(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ [getPendingOrInProgressReceiveOutsources] Lỗi khi lấy danh sách nhận gia công:", error);
+      throw error;
+    }
+  };
+  

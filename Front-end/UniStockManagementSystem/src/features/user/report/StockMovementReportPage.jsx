@@ -49,17 +49,25 @@ const StockMovementReportPage = () => {
 
     const fetchStockMovementReport = async (page = currentPage, size = pageSize) => {
         try {
+            // Thay đổi lệnh gọi API trong fetchStockMovementReport
             const res = await getStockMovementReportPaginated({
                 page,
                 size,
                 search: searchTerm,
-                startDate: startDate ? dayjs(startDate).format("YYYY-MM-DD") : null,
-                endDate: endDate ? dayjs(endDate).format("YYYY-MM-DD") : null,
+                startDate: startDate ? dayjs(startDate).startOf('day').format("YYYY-MM-DDTHH:mm:ss") : null,
+                endDate: endDate ? dayjs(endDate).endOf('day').format("YYYY-MM-DDTHH:mm:ss") : null,
                 itemType: selectedItemType,
                 hasMovementOnly,
-                quantityFilters,
+                // Thay đổi cách truyền quantityFilters
+                minBegin: quantityFilters.beginQuantity?.min,
+                maxBegin: quantityFilters.beginQuantity?.max,
+                minIn: quantityFilters.inQuantity?.min,
+                maxIn: quantityFilters.inQuantity?.max,
+                minOut: quantityFilters.outQuantity?.min,
+                maxOut: quantityFilters.outQuantity?.max,
+                minEnd: quantityFilters.endQuantity?.min,
+                maxEnd: quantityFilters.endQuantity?.max,
             });
-
             const rawData = res.data;
 
             const dataWithSTT = rawData.content.map((item, index) => ({
@@ -75,15 +83,26 @@ const StockMovementReportPage = () => {
         }
     };
 
+    // Thay đổi trong useEffect để reset về trang đầu khi filter thay đổi
+    useEffect(() => {
+        if (currentPage !== 0) {
+            setCurrentPage(0);
+        } else {
+            fetchStockMovementReport(0, pageSize);
+        }
+    }, [searchTerm, selectedItemType, hasMovementOnly, startDate, endDate, quantityFilters]);
+
+    // Giữ nguyên useEffect này để xử lý khi chuyển trang
     useEffect(() => {
         fetchStockMovementReport(currentPage, pageSize);
-    }, [currentPage, pageSize, selectedItemType, hasMovementOnly, startDate, endDate, quantityFilters]);
+    }, [currentPage, pageSize]);
+
 
     useEffect(() => {
         const now = dayjs();
         setStartDate(now.startOf("month").format("YYYY-MM-DD")); // ✅ ISO datetime
         setEndDate(now.endOf("month").format("YYYY-MM-DD"));     // ✅ ISO datetime
-      }, []);
+    }, []);
 
     // Handle page change
     const handlePageChange = (selectedPage) => {
@@ -100,6 +119,16 @@ const StockMovementReportPage = () => {
         setCurrentPage(0);
         fetchStockMovementReport(0, pageSize);
     };
+
+    const handleItemTypeChange = (value) => {
+        setSelectedItemType(value);
+        setCurrentPage(0);
+      };
+      
+      const handleMovementFilterChange = (value) => {
+        setHasMovementOnly(value);
+        setCurrentPage(0);
+      };
 
     // Handle export to PDF
     const handleExportPDF = () => {
@@ -269,28 +298,29 @@ const StockMovementReportPage = () => {
         },
     ];
 
-    const filteredData = reportData.filter((item) => {
-        const matchesSearch =
-            item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.itemName.toLowerCase().includes(searchTerm.toLowerCase());
+    // const filteredData = reportData.filter((item) => {
+    //     const matchesSearch =
+    //         item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //         item.itemName.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const issueDate = dayjs(item.issueDate);
-        const matchesStart = startDate ? issueDate.isAfter(dayjs(startDate).startOf("day")) || issueDate.isSame(dayjs(startDate).startOf("day")) : true;
-        const matchesEnd = endDate ? issueDate.isBefore(dayjs(endDate).endOf("day")) || issueDate.isSame(dayjs(endDate).endOf("day")) : true;
+    //     const issueDate = dayjs(item.issueDate);
+    //     const matchesStart = startDate ? issueDate.isAfter(dayjs(startDate).startOf("day")) || issueDate.isSame(dayjs(startDate).startOf("day")) : true;
+    //     const matchesEnd = endDate ? issueDate.isBefore(dayjs(endDate).endOf("day")) || issueDate.isSame(dayjs(endDate).endOf("day")) : true;
 
-        const matchesAllQuantities = Object.entries(quantityFilters).every(([key, f]) => {
-            const value = item[key];
-            if (f.type === "lt") return f.max == null || value <= f.max;
-            if (f.type === "gt") return f.min == null || value >= f.min;
-            if (f.type === "eq") return f.min == null || value === f.min;
-            return (f.min == null || value >= f.min) && (f.max == null || value <= f.max);
-        });
+    //     const matchesAllQuantities = Object.entries(quantityFilters).every(([key, f]) => {
+    //         const value = item[key];
+    //         if (f.type === "lt") return f.max == null || value <= f.max;
+    //         if (f.type === "gt") return f.min == null || value >= f.min;
+    //         if (f.type === "eq") return f.min == null || value === f.min;
+    //         return (f.min == null || value >= f.min) && (f.max == null || value <= f.max);
+    //     });
 
-        return matchesSearch && matchesStart && matchesEnd && matchesAllQuantities;
-    });
+    //     return matchesSearch && matchesStart && matchesEnd && matchesAllQuantities;
+    // });
 
-    const pageCount = Math.ceil(filteredData.length / pageSize);
-    const paginatedData = filteredData.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+    // const pageCount = Math.ceil(filteredData.length / pageSize);
+    // const paginatedData = filteredData.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+    const pageCount = totalPages || 1;
 
     return (
         <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>

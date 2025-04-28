@@ -18,8 +18,6 @@ public class ProductsDTO {
     private String typeName;
     private Boolean isProductionActive;
     private String imageUrl;
-    private LocalDateTime createdAt;
-    private String createdBy;
     private MultipartFile image; // Dùng cho upload file
     private List<ProductMaterialsDTO> materials; // Danh sách định mức vật tư
 }

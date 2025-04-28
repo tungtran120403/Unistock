@@ -81,7 +81,8 @@ public class SalesOrder {
         CANCELLED,           // Đã hủy
         PROCESSING_NO_REQUEST, // Chưa có yêu cầu
         PROCESSING_PENDING_REQUEST, // Đang chờ yêu cầu mua được duyệt
-        PROCESSING_REJECTED_REQUEST, // Yêu cầu mua bị từ chối
+        PROCESSING_REJECTED_REQUEST,
+        COMPLETE_ISSUED_MATERIAL,// ngọc mới thêm status xuất đủ vật tư để sản xuất
         PARTIALLY_ISSUED, // Đã xuất 1 phần
         COMPLETED, // Đã hoàn thành
     }
@@ -94,6 +95,7 @@ public class SalesOrder {
             case PROCESSING_NO_REQUEST -> "Chưa có yêu cầu";
             case PROCESSING_PENDING_REQUEST -> "Yêu cầu đang chờ duyệt";
             case PROCESSING_REJECTED_REQUEST -> "Yêu cầu bị từ chối";
+            case COMPLETE_ISSUED_MATERIAL -> "Đã xuất đủ vật tư";
             case PARTIALLY_ISSUED -> "Đã xuất một phần";
             case COMPLETED -> "Đã hoàn thành";
         };

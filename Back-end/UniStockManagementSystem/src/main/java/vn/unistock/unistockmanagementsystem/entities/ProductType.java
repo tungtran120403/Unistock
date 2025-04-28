@@ -25,9 +25,4 @@ public class ProductType {
     private Boolean status = true;
     private String description;
 
-    // Audit
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private Long createdBy;
-    private Long updatedBy;
 }

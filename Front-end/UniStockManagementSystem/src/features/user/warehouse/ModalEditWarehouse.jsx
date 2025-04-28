@@ -33,8 +33,12 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [warehouseCategories, setWarehouseCategories] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([]);
-  const { editWarehouse, getUsedCategories } = useWarehouse();
+  const { editWarehouse, getUsedCategories, isWarehouseNameOrCodeTaken } = useWarehouse();
 
+  const normalizeWarehouseName = (name) => {
+    return name.replace(/\s+/g, ' ').trim(); // thay nhiều khoảng trắng bằng 1, xoá đầu/cuối
+  };
+  
   const fetchAvailableCategories = async (warehouse, currentSelectedLabels = []) => {
     if (!warehouse) return;
 
@@ -50,8 +54,6 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
 
     setAvailableCategories(dropdown);
   };
-
-
 
   useEffect(() => {
     if (!warehouse) return;
@@ -103,10 +105,12 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
         errors.warehouseName = "Tên kho không được để trống.";
       } else if (value.length > 100) {
         errors.warehouseName = "Tên kho không được vượt quá 100 ký tự.";
+      } else if ((value.match(/\s{2,}/g) || []).length >= 2) {
+        errors.warehouseName = "Tên kho không được chứa nhiều khoảng trắng liên tiếp.";
       } else {
         delete errors.warehouseName;
       }
-    }
+    }    
 
     if (field === "warehouseDescription") {
       if (value.length > 200) {
@@ -193,10 +197,19 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
               placeholder="Tên kho"
               color="success"
               value={warehouseName}
-              onChange={(e) => {
-                setWarehouseName(e.target.value);
-                validateFields("warehouseName", e.target.value);
-              }}
+              onChange={async (e) => {
+                const rawValue = e.target.value;
+                setWarehouseName(rawValue);
+                validateFields("warehouseName", rawValue);
+              
+                if (rawValue.trim() && rawValue !== warehouse?.warehouseName) {
+                  const result = await isWarehouseNameOrCodeTaken(rawValue.trim(), warehouseCode, warehouse.warehouseId);
+                  let newErrors = { ...error };
+                  if (result.nameExists) newErrors.warehouseName = "Tên kho đã tồn tại.";
+                  else delete newErrors.warehouseName;
+                  setError(newErrors);
+                }
+              }}                          
               error={!!error.warehouseName}
             />
             {error.warehouseName && <Typography variant="small" color="red">{error.warehouseName}</Typography>}
@@ -205,7 +218,8 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
 
         <div>
           <Typography variant="medium" className="text-black mb-1">
-            Phân loại hàng hóa nhập vào kho <span className="text-red-500">(*)</span>
+          Phân loại hàng hóa mặc định cho kho
+          <span className="text-red-500">(*)</span>
           </Typography>
           <Autocomplete
             multiple
@@ -245,7 +259,7 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
           />
 
           {availableCategories.length === 0 && selectedCategories.length === 0 && (
-            <Typography variant="small" color="red" className="mt-1">
+            <Typography className="text-gray-500 mt-1" fontStyle="italic">
               Không có phân loại kho nào khả dụng
             </Typography>
           )}

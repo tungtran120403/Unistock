@@ -1,8 +1,8 @@
 import axios from "axios";
 
 // API endpoint for warehouses
-const API_URL = `${import.meta.env.VITE_API_URL}/user/warehouses`;
-// const API_URL = `http://localhost:8080/api/unistock/user/warehouses`;
+//const API_URL = `${import.meta.env.VITE_API_URL}/user/warehouses`;
+const API_URL = `http://localhost:8080/api/unistock/user/warehouses`;
 // take token from local storage
 const authHeader = () => {
   const token = localStorage.getItem("token");
@@ -108,16 +108,21 @@ export const fetchUsedWarehouseCategories = async (excludeWarehouseId = null) =>
   }
 };
 
-export const checkWarehouseCode = async (warehouseCode, excludeId = null) => {
+export const checkWarehouseNameAndCode = async (warehouseName, warehouseCode, excludeId = null) => {
   try {
-    const params = excludeId ? `?excludeId=${excludeId}` : "";
-    const response = await axios.get(
-      `${API_URL}/user/warehouses/check-warehouse-code/${warehouseCode}${params}`,
-      { headers: authHeader() }
-    );
-    return response.data.exists;
+    const params = new URLSearchParams();
+    params.append("warehouseName", warehouseName);
+    params.append("warehouseCode", warehouseCode);
+    if (excludeId) params.append("excludeId", excludeId);
+
+    const response = await axios.get(`${API_URL}/check-name-and-code?${params.toString()}`, {
+      headers: authHeader()
+    });
+
+    return response.data;
   } catch (error) {
-    console.error("Lỗi kiểm tra mã kho:", error);
-    return false;
+    console.error("Lỗi kiểm tra tên và mã kho:", error);
+    return { nameExists: false, codeExists: false };
   }
 };
+

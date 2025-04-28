@@ -20,17 +20,17 @@ public class PurchaseOrderController {
     private final PurchaseOrderService purchaseOrderService;
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllOrders(
+    public ResponseEntity<Map<String, Object>> getAllOrdersFiltered(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status
     ) {
-        Page<PurchaseOrderDTO> orders = purchaseOrderService.getAllOrders(page, size);
-
+        Page<PurchaseOrderDTO> orders = purchaseOrderService.getAllOrdersFiltered(page, size, search, status);
         Map<String, Object> response = new HashMap<>();
         response.put("content", orders.getContent());
         response.put("totalPages", orders.getTotalPages());
         response.put("totalElements", orders.getTotalElements());
-
         return ResponseEntity.ok(response);
     }
 
@@ -61,6 +61,5 @@ public class PurchaseOrderController {
         List<PurchaseOrderDTO> orders = purchaseOrderService.getPendingOrInProgressOrders();
         return ResponseEntity.ok(orders);
     }
-
 
 }

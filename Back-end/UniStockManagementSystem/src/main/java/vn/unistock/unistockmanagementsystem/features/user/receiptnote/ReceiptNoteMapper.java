@@ -28,5 +28,6 @@ public interface ReceiptNoteMapper {
     @Mapping(source = "details", target = "details")
     @Mapping(source = "category", target = "category")
     @Mapping(source = "partnerId", target = "partner.partnerId")
+    @Mapping(source = "receiptDate", target = "receiptDate")
     GoodReceiptNote toEntity(ReceiptNoteDTO dto);
 }

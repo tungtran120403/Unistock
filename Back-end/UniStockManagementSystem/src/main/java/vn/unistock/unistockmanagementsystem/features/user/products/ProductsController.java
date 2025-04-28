@@ -106,7 +106,7 @@ public class ProductsController {
             dto.setImage(image);
             dto.setMaterials(materials);
 
-            Product createdProduct = productsService.createProduct(dto, "Admin");
+            Product createdProduct = productsService.createProduct(dto);
             return ResponseEntity.ok(createdProduct);
         } catch (Exception e) {
             log.error("Lỗi khi tạo sản phẩm với định mức: ", e);
@@ -135,7 +135,9 @@ public class ProductsController {
             @RequestParam(value = "typeId", required = false) Long typeId,
             @RequestParam(value = "isProductionActive", required = false, defaultValue = "true") Boolean isProductionActive,
             @RequestParam(value = "image", required = false) MultipartFile image,
-            @RequestParam(value = "materials", required = false) String materialsJson) throws IOException {
+            @RequestParam(value = "materials", required = false) String materialsJson,
+            @RequestParam(value = "deleteImage", required = false, defaultValue = "false") boolean deleteImage
+    ) throws IOException {
         try {
             List<ProductMaterialsDTO> materials = null;
             if (materialsJson != null && !materialsJson.trim().isEmpty()) {
@@ -152,14 +154,15 @@ public class ProductsController {
             dto.setIsProductionActive(isProductionActive);
             dto.setImage(image);
             dto.setMaterials(materials);
+            ProductsDTO updatedProduct = productsService.updateProduct(id, dto, image, deleteImage);
 
-            ProductsDTO updatedProduct = productsService.updateProduct(id, dto, image);
             return ResponseEntity.ok(updatedProduct);
         } catch (Exception e) {
             log.error("Lỗi khi cập nhật sản phẩm với định mức: ", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Lỗi khi cập nhật sản phẩm: " + e.getMessage());
         }
     }
+
 
     @GetMapping("/template")
     public ResponseEntity<byte[]> downloadTemplate() {

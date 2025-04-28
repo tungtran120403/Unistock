@@ -35,7 +35,7 @@ dayjs.extend(isSameOrBefore);
 
 const ReceiptNotePage = () => {
   const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const { getUserById } = useUser();
@@ -57,11 +57,16 @@ const ReceiptNotePage = () => {
       console.log("Component mounted, location.state:", location.state?.successMessage);
       setAlertMessage(location.state.successMessage);
       setShowSuccessAlert(true);
-      // Xóa state để không hiển thị lại nếu người dùng refresh
+      fetchPaginatedReceiptNotes(0, pageSize, "", [], null, null); // 👉 Reset các filter, fetch lại từ đầu
+      setCurrentPage(0);
+      setSearchTerm("");
+      setSelectedCategories([]);
+      setStartDate(null);
+      setEndDate(null);
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
-
+  
   const {
     receiptNotes,
     totalPages,

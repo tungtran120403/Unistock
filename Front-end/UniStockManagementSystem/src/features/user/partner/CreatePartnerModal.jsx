@@ -91,7 +91,7 @@ const CreatePartnerModal = ({ onClose, onSuccess }) => {
         }
 
         if (partnerCodes.length === 0) {
-            setErrorPartnerCodes("Hãy chọn ít nhất một mã đối tác.");
+            setErrorPartnerCodes("Hãy chọn ít nhất một nhóm đối tác.");
             isValid = false;
         }
 

@@ -273,51 +273,6 @@ const ViewIssueNote = () => {
     doc.save(`PhieuXuat_${data.ginCode}.pdf`);
   };
 
-  const handleExportExcel = () => {
-    const sheetData = [
-      ["Mã phiếu xuất", data.ginCode],
-      ["Ngày tạo", formatDate(data.issueDate)],
-      ["Người tạo", creator],
-      ["Loại hàng hóa", data.category],
-      ...(data.category === "Bán hàng" && data.soCode ? [["Tham chiếu chứng từ", data.soCode]] : []),
-      ...(data.category === "Sản xuất" && data.receiver ? [["Người nhận", data.receiver]] : []),
-      ...(data.partnerName ? [
-        ["Đối tác", `${data.partnerName} (${data.partnerCode})`],
-        ...(data.contactName ? [["Người liên hệ", data.contactName]] : []),
-        ...(data.address ? [["Địa chỉ", data.address]] : []),
-      ] : []),
-      ["Diễn giải", data.description || "Không có"],
-      [],
-    ];
-
-    const headers = [
-      "STT",
-      data.category === "Bán hàng" ? "Mã hàng" : "Mã SP/NVL",
-      data.category === "Bán hàng" ? "Tên hàng" : "Tên SP/NVL",
-      "Số lượng",
-      "Xuất kho",
-    ];
-
-    sheetData.push(headers);
-
-    const body = data.details.map((item, index) => [
-      index + 1,
-      item.materialCode || item.productCode || "",
-      item.materialName || item.productName || "",
-      item.quantity,
-      item.warehouseName || "",
-    ]);
-
-    sheetData.push(...body);
-
-    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "PhieuXuat");
-
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    saveAs(new Blob([excelBuffer]), `PhieuXuat_${data.ginCode}.xlsx`);
-  };
-
   return (
     <div className="mb-8 flex flex-col gap-12">
       <Card className="bg-gray-50 p-7 rounded-none shadow-none">
@@ -328,16 +283,6 @@ const ViewIssueNote = () => {
             showImport={false}
             showExport={true}
             onExport={handleExportPDF}
-            extraActions={
-              <Button
-                size="sm"
-                color="blue"
-                variant="outlined"
-                onClick={handleExportExcel}
-              >
-                Xuất Excel
-              </Button>
-            }
           />
           <Typography variant="h6" className="flex items-center mb-4 text-black">
             <InformationCircleIcon className="h-5 w-5 mr-2" />
@@ -461,6 +406,29 @@ const ViewIssueNote = () => {
                 )}
               </div>
             )}
+            
+            {data.category === "Sản xuất" && data.receiver && (
+              <div>
+                <Typography variant="medium" className="mb-1 text-black">
+                  Người nhận
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                  disabled
+                  value={data.receiver}
+                  sx={{
+                    '& .MuiInputBase-root.Mui-disabled': {
+                      bgcolor: '#eeeeee',
+                      '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                    },
+                  }}
+                />
+              </div>
+            )}
+
             <div>
               <Typography variant="medium" className="mb-1 text-black">
                 File đính kèm
@@ -502,27 +470,6 @@ const ViewIssueNote = () => {
                 showDownload={true}
               />
             </div>
-            {data.category === "Sản xuất" && data.receiver && (
-              <div>
-                <Typography variant="medium" className="mb-1 text-black">
-                  Người nhận
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  color="success"
-                  variant="outlined"
-                  disabled
-                  value={data.receiver}
-                  sx={{
-                    '& .MuiInputBase-root.Mui-disabled': {
-                      bgcolor: '#eeeeee',
-                      '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                    },
-                  }}
-                />
-              </div>
-            )}
             {["Gia công", "Trả lại hàng mua"].includes(data.category) && data.partnerName && (
               <>
                 <div>

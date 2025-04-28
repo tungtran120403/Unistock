@@ -38,16 +38,6 @@ public class Product {
     @JoinColumn(name = "type_id", nullable = false)
     private ProductType productType;
 
-    // ✅ Chỉ lưu tên người tạo, không dùng Foreign Key
-    @Column(name = "created_by", nullable = true)
-    private String createdBy;
-
-    @Column(name = "updated_by", nullable = true)
-    private String updatedBy;
-
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
     @Column(name = "is_production_active", nullable = false)
     private Boolean isProductionActive = true;  
 

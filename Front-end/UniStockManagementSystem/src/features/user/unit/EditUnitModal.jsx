@@ -41,7 +41,9 @@ const EditUnitModal = ({ unit, onClose, onSuccess }) => {
 
         if (newName.trim() && newName !== unit.unitName) {
             try {
-                const exists = await checkUnitNameExists(newName, unit.id);
+                // Đảm bảo sử dụng đúng ID
+                const actualId = unit.id;
+                const exists = await checkUnitNameExists(newName, actualId);
                 if (exists) {
                     setUnitNameError("Tên đơn vị tính đã tồn tại!");
                 }
@@ -60,12 +62,12 @@ const EditUnitModal = ({ unit, onClose, onSuccess }) => {
         setValidationErrors(newErrors);
         if (Object.keys(newErrors).length === 0 && !unitNameError) {
             try {
-                // Đảm bảo sử dụng id đúng
-                const actualId = unit.unitId || unit.id; // Ưu tiên unitId nếu có
+                // Sử dụng id từ unit trong props
+                const actualId = unit.id; // Đảm bảo rằng đây là ID mà bạn truyền vào từ UnitPage
 
                 // Cấu trúc dữ liệu phải đảm bảo tương thích với UnitDTO.java
                 const dataToSend = {
-                    unitId: actualId, // Có thể backend sẽ bỏ qua trường này, nhưng vẫn nên gửi
+                    unitId: actualId, // Sử dụng đúng tên trường như trong UnitDTO.java
                     unitName: formData.unitName.trim(),
                     status: formData.status
                 };
@@ -73,7 +75,7 @@ const EditUnitModal = ({ unit, onClose, onSuccess }) => {
                 console.log("Data to send:", JSON.stringify(dataToSend));
                 console.log("URL path ID:", actualId);
 
-                // Sử dụng cùng một ID
+                // Gọi hàm onSuccess với đúng ID và dữ liệu
                 await onSuccess(actualId, dataToSend);
                 onClose();
             } catch (error) {

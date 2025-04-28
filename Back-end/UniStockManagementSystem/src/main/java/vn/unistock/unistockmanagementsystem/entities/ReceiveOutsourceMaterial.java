@@ -32,4 +32,10 @@ public class ReceiveOutsourceMaterial {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "warehouse_id")
     private Warehouse warehouse;
+
+    @Column(name = "received_quantity")
+    private Double receivedQuantity;
+
+    @Column(name = "remaining_quantity")
+    private Double remainingQuantity;
 }

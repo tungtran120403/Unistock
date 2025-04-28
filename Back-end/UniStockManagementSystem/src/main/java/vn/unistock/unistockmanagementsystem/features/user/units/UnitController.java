@@ -28,7 +28,7 @@ public class UnitController {
     }
 
     @PatchMapping("/{unitId}/toggle-status")
-    public ResponseEntity<UnitDTO> toggleStatus(
+    public ResponseEntity<UnitDTO> toggleStatusUnit(
             @PathVariable Long unitId,
             @RequestBody Map<String, Boolean> statusRequest
     ) {

@@ -230,7 +230,7 @@ const AddSaleOrderPage = () => {
     }
 
     if (items.length === 0) {
-      setGlobalError("Vui lòng thêm ít nhất một dòng sản phẩm!");
+      setGlobalError("Vui lòng thêm ít nhất một sản phẩm!");
       return;
     } else {
       setGlobalError("");
@@ -246,7 +246,7 @@ const AddSaleOrderPage = () => {
       }
       if (Number(item.quantity) <= 0) {
         newItemsErrors[item.id].quantityError =
-          "Số lượng sản phẩm phải lớn hơn 0!";
+          "Số lượng phải lớn hơn 0!";
         hasError = true;
       }
     });
@@ -504,7 +504,7 @@ const AddSaleOrderPage = () => {
                 <Typography variant="medium" className="mb-1 text-black">
                   Tên khách hàng
                   <span className="text-red-500"> *</span>
-                </Typography>
+                </Typography>             
                 <TextField
                   fullWidth
                   size="small"
@@ -705,7 +705,7 @@ const AddSaleOrderPage = () => {
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-4 py-2 text-center text-gray-500">
-                      {items.length === 0 ? "Chưa có dòng sản phẩm nào" : "Không tìm thấy kết quả phù hợp"}
+                      {items.length === 0 ? "Chưa có sản phẩm nào" : "Không tìm thấy kết quả phù hợp"}
                     </td>
                   </tr>
                 )}

@@ -101,19 +101,21 @@ const PurchaseOrderPage = () => {
 
   // Fetch orders when component mounts or pagination changes
   useEffect(() => {
-    let isMounted = true;
     const timeoutId = setTimeout(() => {
-      if (isMounted) {
-        fetchPaginatedOrders(currentPage, pageSize, searchKeyword, selectedStatus);
-      }
-    }, 500); // Chỉ gọi API sau 500ms nếu không có thay đổi tiếp theo
+      const selected = selectedStatuses.length > 0 ? selectedStatuses[0] : "";
+      fetchPaginatedOrders(currentPage, pageSize, searchTerm, selected);
+    }, 500);
 
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [currentPage, pageSize, searchKeyword, selectedStatus]);
-
+    console.log("Calling fetchPaginatedOrders with:", {
+      page: currentPage,
+      size: pageSize,
+      search: searchTerm,
+      status: selectedStatuses[0],
+    });
+  
+    return () => clearTimeout(timeoutId);
+  }, [currentPage, pageSize, searchTerm, selectedStatuses]);
+  
   // Sorting handler
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -130,13 +132,13 @@ const PurchaseOrderPage = () => {
       const matchesSearch = Object.values(order).some((value) =>
         value && value.toString().toLowerCase().includes(searchKeyword.toLowerCase())
       );
-    
+
       const matchesStatus =
         selectedStatuses.length === 0 || selectedStatuses.includes(order.status);
-    
+
       return matchesSearch && matchesStatus;
     }
-    
+
     )
     .sort((a, b) => {
       if (!sortColumn) return 0;
@@ -239,9 +241,10 @@ const PurchaseOrderPage = () => {
   const navigator = useNavigate();
 
   const handleSearch = () => {
-    fetchPurchaseRequests(0, pageSize, searchTerm);
+    const selected = selectedStatuses.length > 0 ? selectedStatuses[0] : "";
+    fetchPaginatedOrders(0, pageSize, searchTerm, selected);
     setCurrentPage(0);
-};
+  };  
 
   useEffect(() => {
     // Check if location.state exists and has nextCode
@@ -255,7 +258,7 @@ const PurchaseOrderPage = () => {
   }, [location]);
 
   const columnsConfig = [
-    { field: 'index', headerName: 'STT', flex: 0.5, minWidth: 50, editable: false, filterable: false },
+    { field: 'index', headerName: 'STT', flex: 1, minWidth: 80, editable: false, filterable: false },
     { field: 'poCode', headerName: 'Mã đơn', flex: 1.5, minWidth: 150, editable: false, filterable: false },
     { field: 'supplierName', headerName: 'Nhà cung cấp', flex: 2, minWidth: 200, editable: false, filterable: false },
     { field: 'supplierContactName', headerName: 'Người liên hệ', flex: 1.5, minWidth: 150, editable: false, filterable: false },
@@ -287,6 +290,15 @@ const PurchaseOrderPage = () => {
           </div>
         );
       },
+    },
+    {
+      field: 'purchaseRequestCode',
+      headerName: 'Yêu cầu mua',
+      flex: 1.5,
+      minWidth: 150,
+      editable: false,
+      filterable: false,
+      renderCell: (params) => params.value || "Không có"
     },
     {
       field: 'actions',
@@ -329,12 +341,15 @@ const PurchaseOrderPage = () => {
     id: order.poId,
     index: currentPage * pageSize + index + 1,
     poCode: order.poCode,
+    purchaseRequestCode: order.purchaseRequestCode,
     supplierName: order.supplierName || "không có thông tin",
     supplierContactName: order.supplierContactName || "không có thông tin",
     supplierPhone: order.supplierPhone || "không có thông tin",
     orderDate: order.orderDate,
     status: order.status,
   }));
+
+  console.log("Data for table:", data);
 
   return (
     <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>

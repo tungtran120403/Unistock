@@ -9,9 +9,10 @@ import {
 } from "@material-tailwind/react";
 import { TextField, Button as MuiButton, Autocomplete, IconButton, Divider } from '@mui/material';
 import { FaEdit, FaArrowLeft, FaSave, FaTimes, FaTimesCircle } from "react-icons/fa";
-import { fetchMaterialCategories, getMaterialById, updateMaterial, checkMaterialCodeExists } from "./materialService";
+import { getMaterialById, updateMaterial, checkMaterialCodeExists } from "./materialService";
 import { fetchActiveUnits } from "../unit/unitService";
 import { getPartnersByType } from "../partner/partnerService";
+import { fetchActiveMaterialTypes } from "../materialType/materialTypeService";
 import PageHeader from '@/components/PageHeader';
 import SuccessAlert from "@/components/SuccessAlert";
 import ImageUploadBox from '@/components/ImageUploadBox';
@@ -40,25 +41,21 @@ const DetailMaterialPage = () => {
         const [materialData, unitsData, categoriesData, suppliersData] = await Promise.all([
           getMaterialById(id),
           fetchActiveUnits(),
-          fetchMaterialCategories(),
+          fetchActiveMaterialTypes(),
           getPartnersByType(SUPPLIER_TYPE_ID)
         ]);
 
-        const mappedSuppliers = (suppliersData?.partners || [])
-          .map((s) => {
-            const t = s.partnerTypes.find(
-              (pt) => pt.partnerType.typeId === SUPPLIER_TYPE_ID
-            );
-            return {
-              value: s.partnerId,
-              label: s.partnerName,
-              partnerCode: t?.partnerCode || "",
-              address: s.address,
-              phone: s.phone,
-              contactName: s.contactName,
-            };
-          })
-          .filter((s) => s.partnerCode !== "");
+        const mappedSuppliers = (suppliersData?.partners || []).map((s) => {
+          const t = s.partnerTypes.find((pt) => pt.partnerType.typeId === SUPPLIER_TYPE_ID);
+          return {
+            value: s.partnerId,
+            label: s.partnerName,
+            partnerCode: t?.partnerCode || "",
+            address: s.address,
+            phone: s.phone,
+            contactName: s.contactName,
+          };
+        }).filter((s) => s.partnerCode !== "");
 
         setSuppliers(mappedSuppliers);
 
@@ -69,8 +66,28 @@ const DetailMaterialPage = () => {
 
         setMaterial(mappedMaterial);
         setEditedMaterial(mappedMaterial);
-        setUnits(unitsData);
-        setMaterialCategories(categoriesData?.content || []);
+
+        // ✨ Xử lý đơn vị
+        let activeUnits = unitsData || [];
+        const unitExists = activeUnits.some(unit => unit.unitId === materialData.unitId);
+        if (!unitExists && materialData.unitId && materialData.unitName) {
+          activeUnits.push({
+            unitId: materialData.unitId,
+            unitName: materialData.unitName
+          });
+        }
+        setUnits(activeUnits);
+
+        // ✨ Xử lý danh mục vật tư
+        let activeCategories = categoriesData || [];
+        const typeExists = activeCategories.some(cat => cat.materialTypeId === materialData.typeId);
+        if (!typeExists && materialData.typeId && materialData.typeName) {
+          activeCategories.push({
+            materialTypeId: materialData.typeId,
+            name: materialData.typeName
+          });
+        }
+        setMaterialCategories(activeCategories);
 
       } catch (error) {
         console.error("Error loading material details:", error);

@@ -1,10 +1,8 @@
 package vn.unistock.unistockmanagementsystem.security;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -15,7 +13,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
 import vn.unistock.unistockmanagementsystem.security.filter.DynamicAuthorizationFilter;
 import vn.unistock.unistockmanagementsystem.security.filter.JwtAuthenticationFilter;
@@ -28,11 +25,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private final DynamicAuthorizationFilter dynamicAuthorizationFilter;
-    private final JwtAuthenticationFilter      jwtAuthenticationFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    /* =======================================================================
-       SECURITY FILTER CHAIN
-       ===================================================================== */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -40,54 +34,37 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(
-                                "/api/unistock/auth/login",
-                                "/api/unistock/auth/forgot-password",
-                                "/api/unistock/auth/verify-otp",
-                                "/api/unistock/auth/reset-password")
-                        .permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/unistock/auth/login","/api/unistock/auth/me",
+                                "/api/unistock/auth/forgot-password", "/api/unistock/auth/verify-otp",
+                                "/api/unistock/auth/reset-password").permitAll()
+                        .anyRequest().authenticated()
+                )
+                // Thêm filter xác thực JWT (đọc token) trước UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // Thêm filter phân quyền động (check method+url) sau khi xác thực
                 .addFilterAfter(dynamicAuthorizationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    /* =======================================================================
-       CORS CONFIGURATION
-       ===================================================================== */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration cfg = new CorsConfiguration();
-
-        cfg.setAllowedOrigins(List.of(
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
-                "https://happy-glacier-0b250c700.6.azurestaticapps.net"
+                "https://ambitious-pond-081ad9500.6.azurestaticapps.net"
         ));
-        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("*"));                    // cho mọi header
-        cfg.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
-        cfg.setAllowCredentials(true);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
 
-        UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
-        src.registerCorsConfiguration("/**", cfg);
-        return src;
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
-    /**
-     * Đăng ký CorsFilter chạy sớm nhất – không autowire tham số để tránh trùng bean.
-     */
-    @Bean
-    public FilterRegistrationBean<CorsFilter> corsFilterRegistration() {
-        CorsFilter filter = new CorsFilter(corsConfigurationSource());
-        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(filter);
-        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-        return bean;
-    }
-
-    /* =======================================================================
-       PASSWORD ENCODER
-       ===================================================================== */
+    // Mật khẩu => Bcrypt
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

@@ -8,7 +8,7 @@ import dayjs from "dayjs";
 import { fetchPendingOrInProgressOrders, getPurchaseOrderById } from "../purchaseOrder/purchaseOrderService";
 import ProductRow from "../receiptNote/ProductRow";
 
-const ModalChooseOrder = ({ onClose, onOrderSelected }) => {
+const ModalChooseOrder = ({ onClose, onOrderSelected, category }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -19,38 +19,64 @@ const ModalChooseOrder = ({ onClose, onOrderSelected }) => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await fetchPendingOrInProgressOrders();
+        let data = [];
+        if (category === "Hàng hóa gia công") {
+          const { getPendingOrInProgressReceiveOutsources } = await import("../issueNote/issueNoteService");
+          data = await getPendingOrInProgressReceiveOutsources();
+        } else {
+          const { fetchPendingOrInProgressOrders } = await import("../purchaseOrder/purchaseOrderService");
+          data = await fetchPendingOrInProgressOrders();
+        }
         setPurchaseOrders(data);
       } catch (error) {
-        console.error("Lỗi khi tải đơn mua hàng:", error);
+        console.error("Lỗi khi tải chứng từ:", error);
       }
       setLoading(false);
     };
-
+  
     fetchData();
-  }, []);
-
+  }, [category]);
+  
   const handlePageChange = ({ selected }) => {
     setCurrentPage(selected);
   };
 
   const handleSelectOrder = async (orderId) => {
     try {
-      const fullOrder = await getPurchaseOrderById(orderId);
-      onOrderSelected(fullOrder);
+      const order = purchaseOrders.find(po => po.ginId === orderId || po.poId === orderId);
+      if (!order) throw new Error("Không tìm thấy chứng từ");
+  
+      const selectedDoc = {
+        value: order.poId || order.ginId,
+        poId: order.poId,
+        ginId: order.ginId,
+        poCode: order.poCode || order.ginCode,
+        partnerId: order.partnerId || order.supplierId,
+        partnerName: order.partnerName || order.supplierName,
+        partnerAddress: order.partnerAddress || order.supplierAddress,
+        partnerPhone: order.partnerPhone,
+        partnerContactName: order.partnerContactName,
+        orderDate: order.createdAt || order.orderDate,
+        materials: order.materials,
+        details: order.details || order.orderDetails,
+      };
+  
+      onOrderSelected(selectedDoc); // Truyền selectedDoc mới chuẩn
       onClose();
     } catch (error) {
       console.error("Không thể lấy chi tiết đơn hàng:", error);
     }
-  };
+  };  
 
   const mappedOrders = purchaseOrders.map((order) => ({
-    id: order.poId,
-    code: order.poCode || "N/A",
-    customer: order.supplierName || "N/A",
-    date: order.orderDate || null,
+    id: order.ginId || order.poId,
+    code: order.ginCode || order.poCode || "Không có mã",
+    customer: order.partnerName || order.supplierName || "Không xác định",
+    date: order.createdAt || order.orderDate || null,
+    status: order.status || "Không xác định",
+    materialCount: order.materials ? order.materials.length : 0, // đếm số dòng vật tư
   }));
-
+  
   const filteredOrders = mappedOrders.filter(
     (order) =>
       order.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -63,8 +89,8 @@ const ModalChooseOrder = ({ onClose, onOrderSelected }) => {
   );
 
   const columnsConfig = [
-    { field: "code", headerName: "Mã đơn hàng", flex: 0.8, minWidth: 80 },
-    { field: "customer", headerName: "Khách hàng", flex: 3, minWidth: 200 },
+    { field: "code", headerName: "Mã đơn", flex: 0.8, minWidth: 80 },
+    { field: "customer", headerName: "Đối tác", flex: 3, minWidth: 200 },
     {
       field: "date",
       headerName: "Ngày tạo",
@@ -106,7 +132,7 @@ const ModalChooseOrder = ({ onClose, onOrderSelected }) => {
         }}
       >
         <Typography variant="h6" mb={2}>
-          Chọn đơn mua hàng
+          Chọn chứng từ 
         </Typography>
 
         <div className="py-2 flex items-center justify-between gap-2">

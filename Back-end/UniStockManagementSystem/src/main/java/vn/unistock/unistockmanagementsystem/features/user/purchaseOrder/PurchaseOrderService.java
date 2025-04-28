@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import vn.unistock.unistockmanagementsystem.entities.*;
 import vn.unistock.unistockmanagementsystem.features.user.materials.MaterialsRepository;
 import vn.unistock.unistockmanagementsystem.features.user.partner.PartnerRepository;
+import vn.unistock.unistockmanagementsystem.features.user.purchaseRequests.PurchaseRequestService;
 import vn.unistock.unistockmanagementsystem.features.user.saleOrders.SaleOrdersDTO;
 import vn.unistock.unistockmanagementsystem.features.user.saleOrders.SaleOrdersMapper;
 
@@ -41,15 +42,18 @@ public class PurchaseOrderService {
 
     private final PartnerRepository partnerRepository;
     private final MaterialsRepository materialRepository;
+    @Autowired
+    private PurchaseRequestService purchaseRequestService;
 
 
     public Page<PurchaseOrderDTO> getAllOrders(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "orderDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "poId"));
         Page<PurchaseOrder> orders = purchaseOrderRepository.findAll(pageable);
 
         orders.map(order -> PurchaseOrderDTO.builder()
                 .poId(order.getPoId())
                 .poCode(order.getPoCode())
+                .purchaseRequestCode(order.getPurchaseRequest() != null ? order.getPurchaseRequest().getPurchaseRequestCode() : null)
                 .supplierId(order.getPartner() != null ? order.getPartner().getPartnerId() : null)
                 .supplierName(order.getPartner() != null ? order.getPartner().getPartnerName() : null)
                 .supplierContactName(order.getPartner() != null ? order.getPartner().getContactName() : null)
@@ -80,6 +84,7 @@ public class PurchaseOrderService {
             orderDTO.setSupplierName(order.getPartner().getPartnerName());
             orderDTO.setSupplierAddress(order.getPartner().getAddress());
             orderDTO.setSupplierPhone(order.getPartner().getPhone());
+            orderDTO.setSupplierContactName(order.getPartner().getContactName());
         }
 
         // Tải chi tiết đơn hàng từ repository riêng biệt với join fetch
@@ -163,6 +168,13 @@ public class PurchaseOrderService {
             order.setOrderDate(LocalDateTime.now());
             order.setPoCode(generatePurchaseOrderCode(supplier));
 
+            if (request.getPurchaseRequestId() != null) {
+                PurchaseRequest purchaseRequest = new PurchaseRequest();
+                purchaseRequest.setPurchaseRequestId(request.getPurchaseRequestId());
+                order.setPurchaseRequest(purchaseRequest);
+            }
+
+
             // Lưu purchase order
             order = purchaseOrderRepository.save(order);
 
@@ -180,6 +192,9 @@ public class PurchaseOrderService {
                 detail.setReceivedQuantity(0); // Ban đầu chưa nhận hàng
 
                 details.add(detail);
+            }
+            if (request.getPurchaseRequestId() != null) {
+                purchaseRequestService.markRequestAsPurchased(request.getPurchaseRequestId());
             }
 
             // Lưu tất cả chi tiết
@@ -242,6 +257,26 @@ public class PurchaseOrderService {
                 .toList();
     }
 
+    public Page<PurchaseOrderDTO> getAllOrdersFiltered(int page, int size, String search, String status) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "orderDate"));
+        PurchaseOrder.OrderStatus orderStatus = null;
+        if (status != null && !status.trim().isEmpty()) {
+            try {
+                orderStatus = PurchaseOrder.OrderStatus.valueOf(status);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status value: " + status);
+            }
+        }
+        Page<PurchaseOrder> orders = purchaseOrderRepository.searchFilteredOrders(search, orderStatus, pageable);
+        return orders.map(purchaseOrderMapper::toDTO);
+    }
 
+    public SalesOrder getSaleOrderEntityFromPurchaseOrder(Long poId) {
+        return purchaseOrderRepository.findSalesOrderByPurchaseOrderId(poId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng bán liên kết với PurchaseOrder ID: " + poId
+                ));
+    }
 
 }

@@ -52,6 +52,80 @@ const MODE_EDIT = "edit";
 const MODE_DINHMUC = "dinhMuc";
 const CUSTOMER_TYPE_ID = 1;
 
+// List status for filter and display
+const saleOrderStatuses = [
+  {
+    value: "PROCESSING",
+    label: "Chưa có yêu cầu",
+    className: "bg-gray-100 text-gray-800",
+  },
+  {
+    value: "PROCESSING_PENDING_REQUEST",
+    label: "Đang chờ yêu cầu được duyệt",
+    className: "bg-blue-50 text-blue-800",
+  },
+  {
+    value: "PROCESSING_REJECTED_REQUEST",
+    label: "Yêu cầu bị từ chối",
+    className: "bg-pink-50 text-pink-800",
+  },
+  {
+    value: "PREPARING_MATERIAL",
+    label: "Đang chuẩn bị",
+    className: "bg-yellow-100 text-amber-800",
+  },
+  {
+    value: "PARTIALLY_ISSUED",
+    label: "Đã xuất một phần",
+    className: "bg-indigo-50 text-indigo-800",
+  },
+  {
+    value: "COMPLETED",
+    label: "Đã hoàn thành",
+    className: "bg-green-50 text-green-800",
+  },
+  {
+    value: "CANCELLED",
+    label: "Đã huỷ",
+    className: "bg-red-50 text-red-800",
+  },
+];
+
+// Hàm tính toán nhãn hiển thị dựa trên status và purchaseRequestStatus
+const getDisplayLabel = (status, purchaseRequestStatus) => {
+  switch (status) {
+    case "PROCESSING":
+      switch (purchaseRequestStatus) {
+        case "NONE":
+          return "Chưa có yêu cầu";
+        case "CONFIRMED":
+          return "Yêu cầu đã được duyệt";
+        case "CANCELLED":
+          return "Yêu cầu bị từ chối";
+        case "PENDING":
+          return "Đang chờ yêu cầu được duyệt";
+        default:
+          return "Không rõ trạng thái";
+      }
+    case "PROCESSING_NO_REQUEST":
+      return "Chưa có yêu cầu";
+    case "PROCESSING_PENDING_REQUEST":
+      return "Đang chờ yêu cầu được duyệt";
+    case "PROCESSING_REJECTED_REQUEST":
+      return "Yêu cầu bị từ chối";
+    case "PREPARING_MATERIAL":
+      return "Đang chuẩn bị";
+    case "PARTIALLY_ISSUED":
+      return "Đã xuất một phần";
+    case "COMPLETED":
+      return "Đã hoàn thành";
+    case "CANCELLED":
+      return "Đã huỷ";
+    default:
+      return "Không rõ trạng thái";
+  }
+};
+
 const EditSaleOrderPage = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
@@ -68,6 +142,7 @@ const EditSaleOrderPage = () => {
   const [description, setDescription] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
 
   // Mảng dòng sản phẩm
   const [items, setItems] = useState([]);
@@ -162,12 +237,13 @@ const EditSaleOrderPage = () => {
           phoneNumber: orderData.phoneNumber || "",
           items: JSON.parse(JSON.stringify(loadedItems)),
           rejectionReason: orderData.rejectionReason || "",
-          statusLabel: orderData.statusLabel || "Không rõ",
+          statusLabel: getDisplayLabel(orderData.status, orderData.purchaseRequestStatus),
           status: orderData.status || "",
+          purchaseRequestStatus: orderData.purchaseRequestStatus || "",
         });
       } catch (error) {
         console.error("Lỗi khi lấy đơn hàng:", error);
-        alert("Lỗi khi tải thông tin đơn hàng!");
+        console.log("Lỗi khi tải thông tin đơn hàng!");
       }
     };
 
@@ -265,11 +341,11 @@ const EditSaleOrderPage = () => {
           try {
             const materials = await getProductMaterialsByProduct(item.productId);
             if (!materials || materials.length === 0) {
-              newMaterialErrors[item.id] = `Mã SP ${item.productCode} chưa có định mức NVL`;
+              newMaterialErrors[item.id] = `Sản phẩm ${item.productCode} chưa có định mức NVL`;
             }
           } catch (error) {
             console.error("Lỗi khi kiểm tra định mức NVL:", error);
-            newMaterialErrors[item.id] = `Mã SP ${item.productCode} chưa có định mức NVL`;
+            newMaterialErrors[item.id] = `Sản phẩm ${item.productCode} chưa có định mức NVL`;
           }
         }
       })
@@ -310,7 +386,7 @@ const EditSaleOrderPage = () => {
       });
     } catch (error) {
       console.error("Lỗi khi hủy đơn hàng:", error);
-      alert("Không thể hủy đơn hàng. Vui lòng thử lại sau.");
+      console.log("Không thể hủy đơn hàng. Vui lòng thử lại sau.");
     }
   };
 
@@ -415,7 +491,7 @@ const EditSaleOrderPage = () => {
         setMaterialErrors((prev) => {
           const newErrors = { ...prev };
           if (!materials || materials.length === 0) {
-            newErrors[rowId] = `Mã SP ${opt.value} chưa có định mức NVL`;
+            newErrors[rowId] = `Sản phẩm ${opt.value} chưa có định mức NVL`;
           } else {
             delete newErrors[rowId];
           }
@@ -425,7 +501,7 @@ const EditSaleOrderPage = () => {
         console.error("Lỗi khi kiểm tra định mức NVL:", error);
         setMaterialErrors((prev) => ({
           ...prev,
-          [rowId]: `Mã SP ${opt.value} chưa có định mức NVL`,
+          [rowId]: `Sản phẩm ${opt.value} chưa có định mức NVL`,
         }));
       }
     }
@@ -474,7 +550,7 @@ const EditSaleOrderPage = () => {
 
   const handleCreatePurchaseRequest = async () => {
     if (!orderId) {
-      alert("Không tìm thấy đơn hàng để tạo yêu cầu mua vật tư!");
+      console.log("Không tìm thấy đơn hàng để tạo yêu cầu mua vật tư!");
       return;
     }
 
@@ -482,7 +558,7 @@ const EditSaleOrderPage = () => {
       const materialsToBuy = materialRequirements.filter((mat) => mat.quantityToBuy > 0);
 
       if (materialsToBuy.length === 0) {
-        alert("Không có vật tư nào cần mua từ đơn hàng này!");
+        console.log("Không có vật tư nào cần mua từ đơn hàng này!");
         return;
       }
 
@@ -519,7 +595,7 @@ const EditSaleOrderPage = () => {
       const materialsByItem = await Promise.all(materialPromises);
       console.log("🔍 materialsByItem:", JSON.stringify(materialsByItem, null, 2));
 
-      // Tạo usedMaterialsFromWarehouses
+      // Tạo usedMaterialsFromWarehouses với logic reserved mới
       const usedMaterialsFromWarehouses = await Promise.all(
         materialRequirements
           .filter((req) => req.totalInStock > 0)
@@ -528,15 +604,19 @@ const EditSaleOrderPage = () => {
               const warehouses = await getTotalQuantityOfMaterial(req.materialId);
               return warehouses
                 .filter((w) => w.quantity > 0)
-                .map((w) => ({
-                  materialId: req.materialId,
-                  materialCode: req.materialCode,
-                  materialName: req.materialName,
-                  unitName: req.unitName,
-                  quantity: w.quantity, 
-                  warehouseId: w.warehouseId,
-                  warehouseName: w.warehouseName,
-                }));
+                .map((w) => {
+                  // Tính số lượng reserved: lấy toàn bộ tồn kho nếu tồn kho <= yêu cầu, ngược lại lấy số yêu cầu
+                  const reservedQuantity = Math.min(w.quantity, req.requiredQuantity);
+                  return {
+                    materialId: req.materialId,
+                    materialCode: req.materialCode,
+                    materialName: req.materialName,
+                    unitName: req.unitName,
+                    quantity: reservedQuantity,
+                    warehouseId: w.warehouseId,
+                    warehouseName: w.warehouseName,
+                  };
+                });
             } catch (error) {
               console.error(`Lỗi khi lấy tồn kho cho NVL ${req.materialCode}:`, error);
               return [];
@@ -667,7 +747,6 @@ const EditSaleOrderPage = () => {
           headers: error.response.headers,
         } : null,
       });
-      alert("Có lỗi xảy ra khi cập nhật đơn hàng hoặc chuẩn bị dữ liệu yêu cầu mua vật tư!");
     }
   };
 
@@ -685,11 +764,11 @@ const EditSaleOrderPage = () => {
     items.forEach((it) => {
       newItemsErrors[it.id] = {};
       if (!it.productCode) {
-        newItemsErrors[it.id].productError = "Chưa chọn sản phẩm!";
+        newItemsErrors[it.id].productError = "Vui lòng chọn sản phẩm cho dòng này!";
         hasError = true;
       }
       if (Number(it.quantity) <= 0) {
-        newItemsErrors[it.id].quantityError = "Số lượng > 0!";
+        newItemsErrors[it.id].quantityError = "Số lượng phải lớn hơn 0!";
         hasError = true;
       }
     });
@@ -742,12 +821,10 @@ const EditSaleOrderPage = () => {
     try {
       await updateExistingOrder(orderId, payload);
       handleSetMode(MODE_VIEW);
-      navigate("/user/sale-orders", {
-        state: { successMessage: "Cập nhật đơn bán hàng thành công!" },
-      });
+      setAlertMessage("Cập nhật đơn bán hàng thành công!");
+      setShowSuccessAlert(true);
     } catch (err) {
       console.error("Lỗi PUT order:", err);
-      alert("Lỗi khi cập nhật đơn hàng!");
     }
   };
 
@@ -844,7 +921,7 @@ const EditSaleOrderPage = () => {
                     hiddenLabel
                     placeholder="Số lượng"
                     sx={{
-                      '& .MuiInputBase-root.Mui-disabled': {
+                      '& .muiInputBase-root.Mui-disabled': {
                         bgcolor: '#eeeeee',
                         '& .MuiOutlinedInput-notchedOutline': {
                           border: 'none',
@@ -1045,7 +1122,7 @@ const EditSaleOrderPage = () => {
               if (!materials || materials.length === 0) {
                 setMaterialErrors((prev) => ({
                   ...prev,
-                  [item.id]: `Mã SP ${item.productCode} chưa có định mức NVL`,
+                  [item.id]: `Sản phẩm ${item.productCode} chưa có định mức NVL`,
                 }));
                 return null;
               }
@@ -1054,7 +1131,7 @@ const EditSaleOrderPage = () => {
               console.error("Error fetching materials for product", item.productId, error);
               setMaterialErrors((prev) => ({
                 ...prev,
-                [item.id]: `Mã SP ${item.productCode} chưa có định mức NVL`,
+                [item.id]: `Sản phẩm ${item.productCode} chưa có định mức NVL`,
               }));
               return null;
             }
@@ -1224,7 +1301,7 @@ const EditSaleOrderPage = () => {
                     color="success"
                     variant="outlined"
                     disabled
-                    value={originalData?.statusLabel || "Không rõ"}
+                    value={originalData ? getDisplayLabel(originalData.status, originalData.purchaseRequestStatus) : "Không rõ"}
                     sx={{
                       '& .MuiInputBase-root.Mui-disabled': {
                         bgcolor: '#eeeeee',
@@ -1590,7 +1667,7 @@ const EditSaleOrderPage = () => {
               </MuiButton>
 
               <div className="flex items-center gap-2">
-                {mode === MODE_VIEW && originalData?.statusLabel !== "Đã huỷ" && activeTab === "info" && (
+                {mode === MODE_VIEW && originalData?.status !== "CANCELLED" && originalData?.status !== "COMPLETED" && activeTab === "info" && (
                   <MuiButton
                     size="medium"
                     color="error"
@@ -1658,6 +1735,35 @@ const EditSaleOrderPage = () => {
                       disabled={Object.keys(materialErrors).length > 0}
                       onClick={async () => {
                         try {
+                          // Tạo danh sách materials cho mỗi orderDetail
+                          const materialPromises = items.map(async (item) => {
+                            if (item.productId && item.produceQuantity > 0) {
+                              try {
+                                const materials = await getProductMaterialsByProduct(item.productId);
+                                console.log(`🔍 Materials for product ${item.productId}:`, materials);
+                                if (!materials || materials.length === 0) {
+                                  console.warn(`No materials found for product ${item.productId}`);
+                                  return [];
+                                }
+                                return materials
+                                  .filter((mat) => mat.materialId != null)
+                                  .map((mat) => ({
+                                    materialId: mat.materialId,
+                                    requiredQuantity: mat.quantity * item.produceQuantity,
+                                    receivedQuantity: 0,
+                                  }));
+                              } catch (error) {
+                                console.error(`Lỗi khi lấy NVL cho sản phẩm ${item.productId}:`, error);
+                                return [];
+                              }
+                            }
+                            return [];
+                          });
+
+                          const materialsByItem = await Promise.all(materialPromises);
+                          console.log("🔍 materialsByItem:", JSON.stringify(materialsByItem, null, 2));
+
+                          // Tạo usedProductsFromWarehouses
                           const usedProductsFromWarehouses = items.flatMap((item) =>
                             (item.inStock || [])
                               .filter((d) => d.usedQuantity > 0)
@@ -1672,33 +1778,106 @@ const EditSaleOrderPage = () => {
                               }))
                           );
 
-                          const usedMaterialsFromWarehouses = materialRequirements
-                            .map((req) => ({
-                              materialId: req.materialId,
-                              quantity: req.requiredQuantity,
-                            }))
-                            .filter((entry) => entry.quantity > 0);
+                          // Tạo usedMaterialsFromWarehouses với logic reserved mới
+                          const usedMaterialsFromWarehouses = await Promise.all(
+                            materialRequirements
+                              .filter((req) => req.totalInStock > 0)
+                              .map(async (req) => {
+                                try {
+                                  const warehouses = await getTotalQuantityOfMaterial(req.materialId);
+                                  return warehouses
+                                    .filter((w) => w.quantity > 0)
+                                    .map((w) => {
+                                      // Tính số lượng reserved: lấy toàn bộ tồn kho nếu tồn kho <= yêu cầu, ngược lại lấy số yêu cầu
+                                      const reservedQuantity = Math.min(w.quantity, req.requiredQuantity);
+                                      return {
+                                        materialId: req.materialId,
+                                        materialCode: req.materialCode,
+                                        materialName: req.materialName,
+                                        unitName: req.unitName,
+                                        quantity: reservedQuantity,
+                                        warehouseId: w.warehouseId,
+                                        warehouseName: w.warehouseName,
+                                      };
+                                    });
+                                } catch (error) {
+                                  console.error(`Lỗi khi lấy tồn kho cho NVL ${req.materialCode}:`, error);
+                                  return [];
+                                }
+                              })
+                          ).then((results) => results.flat());
+                          console.log("🔍 usedMaterialsFromWarehouses:", JSON.stringify(usedMaterialsFromWarehouses, null, 2));
 
-                          const payload = {
+                          // Tạo payload để cập nhật SaleOrder
+                          const aggregated = items.reduce((acc, cur) => {
+                            const ex = acc.find((x) => x.productCode === cur.productCode);
+                            if (ex) {
+                              ex.quantity += cur.quantity;
+                              ex.inStock += cur.inStock;
+                              ex.usedQuantity += cur.usedQuantity;
+                              ex.exportedQuantity += cur.exportedQuantity;
+                              ex.pendingQuantity += cur.pendingQuantity;
+                              ex.produceQuantity += cur.produceQuantity;
+                            } else {
+                              acc.push({ ...cur });
+                            }
+                            return acc;
+                          }, []);
+
+                          const updatePayload = {
+                            orderId: Number(orderId),
+                            orderCode,
+                            partnerId,
+                            partnerCode: customerCode,
+                            partnerName: customerName,
+                            address,
+                            phoneNumber,
+                            contactName,
+                            status: "PROCESSING",
+                            orderDate,
+                            note: description,
+                            orderDetails: aggregated.map((it, index) => ({
+                              orderDetailId: it.orderDetailId || null,
+                              productId: it.productId || null,
+                              productCode: it.productCode,
+                              productName: it.productName,
+                              quantity: it.quantity,
+                              unitName: it.unitName,
+                              inStock: it.inStock,
+                              usedQuantity: it.usedQuantity,
+                              receivedQuantity: it.exportedQuantity,
+                              produceQuantity: it.produceQuantity,
+                              materials: materialsByItem[index] ? materialsByItem[index].filter(mat => mat.materialId != null) : [],
+                            })),
+                          };
+
+                          console.log("🔍 Final payload for updateExistingOrder:", JSON.stringify(updatePayload, null, 2));
+
+                          // Cập nhật SaleOrder trước
+                          await updateExistingOrder(orderId, updatePayload);
+
+                          // Tạo payload cho setPreparingStatus
+                          const statusPayload = {
                             saleOrderId: orderId,
                             usedProductsFromWarehouses,
                             usedMaterialsFromWarehouses,
                           };
 
-                          console.log("🔍 Gửi setPreparingStatus với payload:", payload);
+                          console.log("🔍 Gửi setPreparingStatus với payload:", JSON.stringify(statusPayload, null, 2));
 
                           await setPreparingStatus(payload);
-                          alert("Đơn hàng đã được chuyển sang trạng thái 'Đang chuẩn bị'.");
-                          navigate("/user/sale-orders");
+                          navigate("/user/sale-orders", {
+                            state: { successMessage: "Đơn hàng đang được chuẩn bị!" },
+                          });
                         } catch (err) {
                           console.error("Lỗi khi chuyển trạng thái đơn hàng:", err);
-                          alert("Không thể chuyển trạng thái đơn hàng.");
+                          console.log("Không thể chuyển trạng thái đơn hàng.");
                         }
                       }}
                     >
                       <div className="flex items-center gap-2">
                         <FaCheck />
-                        <span>Hoàn thành chuẩn bị vật tư</span>
+                        <span>Chuẩn bị vật tư</span>
                       </div>
                     </Button>
                   ) : (
@@ -1740,6 +1919,11 @@ const EditSaleOrderPage = () => {
         />
       )}
 
+      <SuccessAlert
+        open={showSuccessAlert}
+        onClose={() => setShowSuccessAlert(false)}
+        message={alertMessage}
+      />
     </div>
   );
 };

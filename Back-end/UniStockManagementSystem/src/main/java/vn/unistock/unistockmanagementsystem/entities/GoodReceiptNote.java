@@ -49,7 +49,6 @@ public class GoodReceiptNote {
     @Column(name = "category", nullable = false)
     private String category;
 
-    @CreationTimestamp
     private LocalDateTime receiptDate;
 
     @ManyToOne

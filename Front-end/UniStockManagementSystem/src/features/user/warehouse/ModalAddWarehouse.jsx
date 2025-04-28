@@ -40,9 +40,13 @@ const ModalAddWarehouse = ({ show, onClose, onAdd }) => {
 
   const [warehouseCategories, setWarehouseCategories] = useState([]);
   const [availableCategories, setAvailableCategories] = useState(categoryOptions);
-  const { addWarehouse, getUsedCategories, isWarehouseCodeTaken } = useWarehouse();
+  const { addWarehouse, getUsedCategories } = useWarehouse();
   const [isAllCategoriesUsed, setIsAllCategoriesUsed] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const normalizeWarehouseName = (name) => {
+    return name.replace(/\s+/g, ' ').trim(); // thay nhiều khoảng trắng bằng 1, xoá đầu/cuối
+  };
+  const { isWarehouseCodeTaken, isWarehouseNameOrCodeTaken } = useWarehouse();
 
   const validateFields = (field, value) => {
     let errors = { ...error };
@@ -62,9 +66,11 @@ const ModalAddWarehouse = ({ show, onClose, onAdd }) => {
         errors.warehouseName = "Tên kho không được để trống.";
       } else if (value.length > 100) {
         errors.warehouseName = "Tên kho không vượt quá 100 ký tự.";
+      } else if ((value.match(/\s{2,}/g) || []).length >= 2) {
+        errors.warehouseName = "Tên kho không được chứa nhiều khoảng trắng liên tiếp.";
       } else {
         delete errors.warehouseName;
-      }
+      }      
     }
 
     if (field === "warehouseDescription") {
@@ -115,7 +121,7 @@ const ModalAddWarehouse = ({ show, onClose, onAdd }) => {
 
       const data = {
         warehouseCode,
-        warehouseName,
+        warehouseName: normalizeWarehouseName(warehouseName),
         warehouseDescription,
         goodCategory,
         isActive,
@@ -200,22 +206,15 @@ const ModalAddWarehouse = ({ show, onClose, onAdd }) => {
                 const uppercased = e.target.value.toUpperCase();
                 setWarehouseCode(uppercased);
                 validateFields("warehouseCode", uppercased);
-
+              
                 if (uppercased && /^[A-Za-z0-9_-]{1,50}$/.test(uppercased)) {
-                  const exists = await isWarehouseCodeTaken(uppercased);
-                  if (exists) {
-                    setError(prev => ({
-                      ...prev,
-                      warehouseCode: "Mã kho đã tồn tại."
-                    }));
-                  } else {
-                    setError(prev => {
-                      const { warehouseCode, ...rest } = prev;
-                      return rest;
-                    });
-                  }
+                  const result = await isWarehouseNameOrCodeTaken("", uppercased);
+                  let newErrors = { ...error };
+                  if (result.codeExists) newErrors.warehouseCode = "Mã kho đã tồn tại.";
+                  else delete newErrors.warehouseCode;
+                  setError(newErrors);
                 }
-              }}
+              }}                                    
               error={!!error.warehouseCode}
             />
             {error.warehouseCode && <Typography variant="small" color="red">{error.warehouseCode}</Typography>}
@@ -232,10 +231,19 @@ const ModalAddWarehouse = ({ show, onClose, onAdd }) => {
               placeholder="Tên kho"
               color="success"
               value={warehouseName}
-              onChange={(e) => {
-                setWarehouseName(e.target.value);
-                validateFields("warehouseName", e.target.value);
-              }}
+              onChange={async (e) => {
+                const rawValue = e.target.value;
+                setWarehouseName(rawValue);
+                validateFields("warehouseName", rawValue);
+              
+                if (rawValue.trim()) {
+                  const result = await isWarehouseNameOrCodeTaken(rawValue.trim(), "");
+                  let newErrors = { ...error };
+                  if (result.nameExists) newErrors.warehouseName = "Tên kho đã tồn tại.";
+                  else delete newErrors.warehouseName;
+                  setError(newErrors);
+                }
+              }}                                         
               error={!!error.warehouseName}
             />
             {error.warehouseName && <Typography variant="small" color="red">{error.warehouseName}</Typography>}
@@ -244,8 +252,8 @@ const ModalAddWarehouse = ({ show, onClose, onAdd }) => {
 
         <div>
           <Typography variant="medium" className="text-black">
-          Phân loại hàng hóa nhập vào kho
-            <span className="text-red-500"> *</span>
+          Phân loại hàng hóa mặc định 
+            <span className="text-red-500"> (*)</span>
           </Typography>
           {isAllCategoriesUsed ? (
             <Typography className="text-gray-500 mt-1" fontStyle="italic">

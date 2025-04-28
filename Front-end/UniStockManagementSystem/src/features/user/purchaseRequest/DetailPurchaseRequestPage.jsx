@@ -17,7 +17,6 @@ import { FaArrowLeft, FaTimes } from "react-icons/fa";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import {
     CheckRounded,
-
 } from '@mui/icons-material';
 import ReactPaginate from "react-paginate";
 import { getPurchaseRequestById, updatePurchaseRequestStatus } from "./PurchaseRequestService";
@@ -32,6 +31,7 @@ const DetailPurchaseRequestPage = () => {
     const navigate = useNavigate();
 
     const [purchaseRequest, setPurchaseRequest] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [currentPage, setCurrentPage] = useState(0);
@@ -45,9 +45,23 @@ const DetailPurchaseRequestPage = () => {
         CONFIRMED: "Đã duyệt",
         CANCELLED: "Từ chối",
         FINISHED: "Đã hoàn thành",
+        PURCHASED: "Đã tạo đơn mua",
     };
 
     useEffect(() => {
+        // Lấy thông tin user từ localStorage
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            try {
+                setCurrentUser(JSON.parse(storedUser));
+            } catch (err) {
+                console.error("Lỗi parse JSON từ localStorage:", err);
+                setError("Không thể đọc thông tin user từ localStorage");
+            }
+        } else {
+            setError("Không tìm thấy thông tin user trong localStorage");
+        }
+
         fetchPurchaseRequest();
     }, [id]);
 
@@ -103,7 +117,7 @@ const DetailPurchaseRequestPage = () => {
         setCurrentPage(selectedItem.selected);
     };
 
-    if (loading) return <Typography>Đang tải...</Typography>;
+    if (!currentUser || loading) return <Typography>Đang tải...</Typography>;
     if (error) return <Typography className="text-red-500">{error}</Typography>;
     if (!purchaseRequest) return <Typography>Không tìm thấy yêu cầu mua vật tư.</Typography>;
 
@@ -428,7 +442,7 @@ const DetailPurchaseRequestPage = () => {
                         >
                             <FaArrowLeft className="h-3 w-3" /> Quay lại
                         </MuiButton>
-                        {purchaseRequest.status?.toUpperCase() === "PENDING" && (
+                        {currentUser && purchaseRequest.status?.toUpperCase() === "PENDING" && currentUser.permissions.includes("updatePurchaseRequestStatus") && (
                             <div className="flex gap-3">
                                 <MuiButton
                                     size="medium"

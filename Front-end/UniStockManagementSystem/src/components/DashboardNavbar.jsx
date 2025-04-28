@@ -87,7 +87,7 @@ export function DashboardNavbar() {
           {user ? (
             <>
               <Avatar
-                src={user.avatar ? user.avatar : "/img/default-avatar.png"}
+                src={user.avatar}
                 alt={user.email}
                 size="sm"
                 variant="circular"

@@ -9,9 +9,7 @@ import org.springframework.stereotype.Service;
 import vn.unistock.unistockmanagementsystem.entities.Warehouse;
 import vn.unistock.unistockmanagementsystem.features.user.inventory.InventoryRepository;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -83,9 +81,6 @@ public class WarehouseService {
         return warehouseRepository.save(warehouse);
     }
 
-    public void deleteWarehouse(Long id) {
-        warehouseRepository.deleteById(id);
-    }
 
     public Warehouse updateWarehouseStatus(Long id, Boolean isActive) {
         Warehouse warehouse = getWarehouseById(id);
@@ -122,6 +117,28 @@ public class WarehouseService {
                 .flatMap(cat -> Arrays.stream(cat.split(",\\s*")))
                 .distinct()
                 .toList();
+    }
+
+    public Map<String, Boolean> checkWarehouseNameAndCode(String warehouseName, String warehouseCode, Long excludeId) {
+        boolean nameExists;
+        boolean codeExists;
+
+        if (excludeId != null) {
+            Warehouse existing = warehouseRepository.findByWarehouseId(excludeId);
+            nameExists = !existing.getWarehouseName().equals(warehouseName)
+                    && warehouseRepository.existsByWarehouseName(warehouseName);
+
+            codeExists = !existing.getWarehouseCode().equals(warehouseCode)
+                    && warehouseRepository.existsByWarehouseCode(warehouseCode);
+        } else {
+            nameExists = warehouseRepository.existsByWarehouseName(warehouseName);
+            codeExists = warehouseRepository.existsByWarehouseCode(warehouseCode);
+        }
+
+        Map<String, Boolean> result = new HashMap<>();
+        result.put("nameExists", nameExists);
+        result.put("codeExists", codeExists);
+        return result;
     }
 
 }

@@ -9,6 +9,7 @@ import {
 } from "@material-tailwind/react";
 import { TextField, Divider, Button as MuiButton, IconButton } from "@mui/material";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { checkNameExists } from "./materialTypeService";
 
 const EditMaterialTypeModal = ({ materialType, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -16,35 +17,51 @@ const EditMaterialTypeModal = ({ materialType, onClose, onSuccess }) => {
         description: "",
         status: true,
     });
+    const [nameError, setNameError] = useState("");
     const [validationErrors, setValidationErrors] = useState({});
 
     useEffect(() => {
         if (materialType) {
             setFormData({
                 name: materialType.name,
-                description: materialType.description,
+                description: materialType.description || "",
                 status: materialType.status,
             });
+            setNameError("");
+            setValidationErrors({});
         }
     }, [materialType]);
 
-    // Hàm kiểm tra chuỗi có chứa toàn khoảng trắng hoặc trống không
     const isEmptyOrWhitespace = (str) => !str || /^\s*$/.test(str);
 
-    // Hàm xử lý khi thay đổi tên loại nguyên liệu
-    const handleNameChange = (newName) => {
-        setFormData({ ...formData, name: newName });
-        if (!isEmptyOrWhitespace(newName)) {
-            setValidationErrors((prev) => ({ ...prev, name: "" }));
+    // Kiểm tra tên khi nhập
+    const handleCheckName = async (newName) => {
+        setNameError("");
+        setValidationErrors((prev) => ({ ...prev, name: "" }));
+        setFormData((prev) => ({ ...prev, name: newName }));
+
+        const normalizedName = newName.trim();
+        if (normalizedName) {
+            try {
+                const exists = await checkNameExists(normalizedName, materialType.materialTypeId);
+                if (exists) {
+                    setNameError("Tên danh mục vật tư này đã tồn tại!");
+                }
+            } catch (error) {
+                setNameError("Lỗi khi kiểm tra tên danh mục vật tư!");
+            }
         }
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
+    // Xử lý submit
+    const handleSubmit = async () => {
         const newErrors = {};
-        if (isEmptyOrWhitespace(formData.name)) {
-            newErrors.name = "Tên loại nguyên liệu không được để trống hoặc chỉ chứa khoảng trắng!";
+        const normalizedName = formData.name.trim();
+
+        if (isEmptyOrWhitespace(normalizedName)) {
+            newErrors.name = "Tên danh mục vật tư không được để trống hoặc chỉ chứa khoảng trắng!";
+        } else if (nameError) {
+            newErrors.name = nameError;
         }
 
         setValidationErrors(newErrors);
@@ -52,53 +69,49 @@ const EditMaterialTypeModal = ({ materialType, onClose, onSuccess }) => {
         if (Object.keys(newErrors).length === 0) {
             try {
                 if (!materialType.materialTypeId) {
-                    throw new Error("ID của loại nguyên liệu không hợp lệ!");
+                    throw new Error("ID của danh mục vật tư không hợp lệ!");
                 }
-                await onSuccess(materialType.materialTypeId, formData);
+                await onSuccess(materialType.materialTypeId, { ...formData, name: normalizedName });
                 onClose();
             } catch (error) {
-                console.error("Error updating material type:", error);
+                setNameError(error.message || "Lỗi khi cập nhật danh mục vật tư!");
             }
         }
     };
 
+    // Kiểm tra nút "Lưu" có bị vô hiệu không
+    const isUpdateDisabled = () => {
+        return !!nameError || isEmptyOrWhitespace(formData.name);
+    };
+
     return (
         <Dialog open={true} handler={onClose} size="md" className="px-4 py-2">
-            {/* Header của Dialog */}
             <DialogHeader className="flex justify-between items-center pb-2">
                 <Typography variant="h4" color="blue-gray">
-                    Chỉnh sửa loại nguyên liệu
+                    Chỉnh sửa danh mục vật tư
                 </Typography>
                 <IconButton size="small" onClick={onClose}>
                     <XMarkIcon className="h-5 w-5 stroke-2" />
                 </IconButton>
             </DialogHeader>
             <Divider variant="middle" />
-            {/* Body của Dialog */}
             <DialogBody className="space-y-4 pb-6 pt-6">
-                {/* Tên loại nguyên liệu */}
                 <div>
                     <Typography variant="medium" className="text-black">
-                        Tên loại nguyên liệu
-                        <span className="text-red-500"> *</span>
+                        Tên danh mục vật tư <span className="text-red-500">*</span>
                     </Typography>
                     <TextField
                         fullWidth
                         size="small"
                         hiddenLabel
-                        placeholder="Tên loại nguyên liệu"
+                        placeholder="Tên danh mục vật tư"
                         color="success"
                         value={formData.name}
-                        onChange={(e) => handleNameChange(e.target.value)}
+                        onChange={(e) => handleCheckName(e.target.value)}
+                        error={!!nameError || !!validationErrors.name}
+                        helperText={nameError || validationErrors.name}
                     />
-                    {validationErrors.name && (
-                        <Typography variant="small" color="red">
-                            {validationErrors.name}
-                        </Typography>
-                    )}
                 </div>
-
-                {/* Mô tả */}
                 <div>
                     <Typography variant="medium" className="text-black">
                         Mô tả
@@ -117,8 +130,6 @@ const EditMaterialTypeModal = ({ materialType, onClose, onSuccess }) => {
                     />
                 </div>
             </DialogBody>
-
-            {/* Footer của Dialog */}
             <DialogFooter className="pt-0">
                 <MuiButton
                     size="medium"
@@ -135,6 +146,7 @@ const EditMaterialTypeModal = ({ materialType, onClose, onSuccess }) => {
                     className="bg-[#0ab067] hover:bg-[#089456]/90 shadow-none text-white font-medium py-2 px-4 ml-3 rounded-[4px] transition-all duration-200 ease-in-out"
                     ripple={true}
                     onClick={handleSubmit}
+                    disabled={isUpdateDisabled()}
                 >
                     Lưu
                 </Button>

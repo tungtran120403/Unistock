@@ -20,7 +20,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import SuccessAlert from "@/components/SuccessAlert";
 
 const UnitPage = () => {
-    const { units, fetchUnits, toggleStatus, createUnit, totalPages, totalElements, loading } = useUnit();
+    const { units, fetchUnits, toggleStatus, createUnit, updateUnit, totalPages, totalElements, loading } = useUnit();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -48,8 +48,8 @@ const UnitPage = () => {
         try {
             await createUnit(formData);
             setShowCreateModal(false);
-            setSuccessMessage("Thêm đơn vị thành công!"), 
-            setSuccessAlertOpen(true);
+            setSuccessMessage("Thêm đơn vị thành công!"),
+                setSuccessAlertOpen(true);
             fetchUnits(currentPage, pageSize);
         } catch (error) {
             alert(error.message || "Lỗi khi tạo đơn vị tính");
@@ -189,10 +189,17 @@ const UnitPage = () => {
                 <EditUnitModal
                     unit={editUnit}
                     onClose={() => setShowEditModal(false)}
-                    onSuccess={() => {
-                        fetchUnits(currentPage, pageSize);
-                        setSuccessMessage("Cập nhật đơn vị thành công!");
-                        setSuccessAlertOpen(true);
+                    onSuccess={async (unitId, unitData) => {
+                        try {
+                            await updateUnit(unitId, unitData);
+                            fetchUnits(currentPage, pageSize);
+                            setSuccessMessage("Cập nhật đơn vị thành công!");
+                            setSuccessAlertOpen(true);
+                            setShowEditModal(false);
+                        } catch (error) {
+                            console.error("Lỗi khi cập nhật:", error);
+                            alert(error.message || "Lỗi khi cập nhật đơn vị tính");
+                        }
                     }}
                 />
             )}

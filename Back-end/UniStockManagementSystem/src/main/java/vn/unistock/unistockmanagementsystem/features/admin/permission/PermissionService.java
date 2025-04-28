@@ -28,34 +28,34 @@ public class PermissionService {
     }
 
     // 🟢 Thêm quyền mới
-    public PermissionDTO createPermission(PermissionDTO dto) {
-        if (permissionRepository.existsByPermissionName(dto.getName())) {
-            throw new RuntimeException("Quyền đã tồn tại");
-        }
-        Permission entity = permissionMapper.toEntity(dto);
-        entity = permissionRepository.save(entity);
-        return permissionMapper.toDTO(entity);
-    }
-
-    // 🟢 Cập nhật quyền
-    public PermissionDTO updatePermission(Long id, PermissionDTO dto) {
-        Permission existingPermission = permissionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy quyền"));
-
-        existingPermission.setPermissionName(dto.getName());
-        existingPermission.setDescription(dto.getDescription());
-        existingPermission.setHttpMethod(dto.getHttpMethod());
-        existingPermission.setUrlPattern(dto.getUrlPattern());
-
-        existingPermission = permissionRepository.save(existingPermission);
-        return permissionMapper.toDTO(existingPermission);
-    }
-
-    // 🗑 Xóa quyền
-    public void deletePermission(Long id) {
-        Permission permission = permissionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Quyền không tồn tại"));
-
-        permissionRepository.delete(permission);
-    }
+//    public PermissionDTO createPermission(PermissionDTO dto) {
+//        if (permissionRepository.existsByPermissionName(dto.getName())) {
+//            throw new RuntimeException("Quyền đã tồn tại");
+//        }
+//        Permission entity = permissionMapper.toEntity(dto);
+//        entity = permissionRepository.save(entity);
+//        return permissionMapper.toDTO(entity);
+//    }
+//
+//    // 🟢 Cập nhật quyền
+//    public PermissionDTO updatePermission(Long id, PermissionDTO dto) {
+//        Permission existingPermission = permissionRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Không tìm thấy quyền"));
+//
+//        existingPermission.setPermissionName(dto.getName());
+//        existingPermission.setDescription(dto.getDescription());
+//        existingPermission.setHttpMethod(dto.getHttpMethod());
+//        existingPermission.setUrlPattern(dto.getUrlPattern());
+//
+//        existingPermission = permissionRepository.save(existingPermission);
+//        return permissionMapper.toDTO(existingPermission);
+//    }
+//
+//    // 🗑 Xóa quyền
+//    public void deletePermission(Long id) {
+//        Permission permission = permissionRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Quyền không tồn tại"));
+//
+//        permissionRepository.delete(permission);
+//    }
 }

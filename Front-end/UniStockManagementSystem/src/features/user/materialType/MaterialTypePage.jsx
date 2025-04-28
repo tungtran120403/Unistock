@@ -4,11 +4,8 @@ import CreateMaterialTypeModal from "./CreateMaterialTypeModal";
 import EditMaterialTypeModal from "./EditMaterialTypeModal";
 import {
     Card,
-    CardHeader,
     CardBody,
     Typography,
-    Button,
-    Tooltip,
     Switch,
 } from "@material-tailwind/react";
 import { IconButton } from "@mui/material";
@@ -26,7 +23,8 @@ const MaterialTypePage = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [successAlertOpen, setSuccessAlertOpen] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
+    const [errorAlertOpen, setErrorAlertOpen] = useState(false);
+    const [alertMessage, setAlertMessage] = useState("");
     const [pendingToggleRow, setPendingToggleRow] = useState(null);
     const [editMaterialType, setEditMaterialType] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
@@ -42,18 +40,19 @@ const MaterialTypePage = () => {
 
     const handlePageSizeChange = (e) => {
         setPageSize(Number(e.target.value));
-        setCurrentPage(0); // Reset về trang đầu khi thay đổi kích thước trang
+        setCurrentPage(0);
     };
 
     const handleCreateSuccess = async (formData) => {
         try {
             await createMaterialType(formData);
             setShowCreateModal(false);
-            fetchMaterialTypes(currentPage, pageSize); // Làm mới danh sách
-            setSuccessMessage("Tạo danh mục vật tư thành công!");
+            fetchMaterialTypes(currentPage, pageSize);
+            setAlertMessage("Tạo danh mục vật tư thành công!");
             setSuccessAlertOpen(true);
         } catch (error) {
-            alert(error.message || "Lỗi khi tạo loại nguyên liệu");
+            setAlertMessage(error.message || "Lỗi khi tạo danh mục vật tư");
+            setErrorAlertOpen(true);
         }
     };
 
@@ -61,33 +60,30 @@ const MaterialTypePage = () => {
         try {
             await updateMaterialType(materialTypeId, formData);
             setShowEditModal(false);
-            fetchMaterialTypes(currentPage, pageSize); // Làm mới danh sách
-            setSuccessMessage("Cập nhật danh mục vật tư thành công!");
+            fetchMaterialTypes(currentPage, pageSize);
+            setAlertMessage("Cập nhật danh mục vật tư thành công!");
             setSuccessAlertOpen(true);
         } catch (error) {
-            alert(error.message || "Lỗi khi cập nhật loại nguyên liệu");
+            setAlertMessage(error.message || "Lỗi khi cập nhật danh mục vật tư");
+            setErrorAlertOpen(true);
         }
     };
 
     const columnsConfig = [
-        { field: 'index', headerName: 'STT', flex: 0.5, minWidth: 50, editable: false, filterable: false },
-        { field: 'name', headerName: 'Tên danh mục vật tư', flex: 2, minWidth: 300, editable: false, filterable: false },
+        { field: 'index', headerName: 'STT', flex: 0.5, minWidth: 50 },
+        { field: 'name', headerName: 'Tên danh mục vật tư', flex: 2, minWidth: 300 },
         {
             field: 'description',
             headerName: 'Mô tả',
             flex: 2,
             minWidth: 400,
-            editable: false,
-            filterable: false,
-            renderCell: (params) => params.value || "-",
+            renderCell: (params) => params.value || "Chưa có mô tả",
         },
         {
             field: 'status',
             headerName: 'Trạng thái',
             flex: 1,
             minWidth: 200,
-            editable: false,
-            filterable: false,
             renderCell: (params) => (
                 <div className="flex items-center gap-2">
                     <Switch
@@ -99,10 +95,8 @@ const MaterialTypePage = () => {
                         }}
                         disabled={loading}
                     />
-                    <div
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                      ${params.value ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}
-                    >
+                    <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+            ${params.value ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
                         {params.value ? "Đang hoạt động" : "Ngừng hoạt động"}
                     </div>
                 </div>
@@ -113,39 +107,33 @@ const MaterialTypePage = () => {
             headerName: 'Hành động',
             flex: 0.5,
             minWidth: 100,
-            editable: false,
-            filterable: false,
             renderCell: (params) => (
-                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                    <Tooltip content="Chỉnh sửa">
-                        <IconButton
-                            size="small"
-                            onClick={() => {
-                                console.log("👉 params.row trước khi chỉnh sửa:", params.row);
-                                setEditMaterialType(params.row);
-                                setShowEditModal(true);
-                            }}
-                            color="primary"
-                        >
-                            <ModeEditOutlineOutlinedIcon />
-                        </IconButton>
-                    </Tooltip>
+                <div className="flex justify-center w-full">
+                    <IconButton
+                        size="small"
+                        onClick={() => {
+                            setEditMaterialType(params.row);
+                            setShowEditModal(true);
+                        }}
+                        color="primary"
+                    >
+                        <ModeEditOutlineOutlinedIcon />
+                    </IconButton>
                 </div>
             ),
         },
     ];
 
     const data = materialTypes.map((type, index) => ({
-        id: type.materialTypeId, // DataGrid cần `id`
-        materialTypeId: type.materialTypeId,
-        index: currentPage * pageSize + index + 1,
+        id: type.materialTypeId,
+        index: (currentPage * pageSize) + index + 1,
         name: type.name,
         description: type.description,
         status: type.status,
     }));
 
     return (
-        <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+        <div className="mb-8 flex flex-col gap-12">
             <Card className="bg-gray-50 p-7 rounded-none shadow-none">
                 <CardBody className="pb-2 bg-white rounded-xl">
                     <PageHeader
@@ -157,7 +145,7 @@ const MaterialTypePage = () => {
                     />
                     <div className="px-4 py-2 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <Typography variant="small" color="blue-gray" className="font-normal whitespace-nowrap">
+                            <Typography variant="small" className="font-normal whitespace-nowrap">
                                 Hiển thị
                             </Typography>
                             <select
@@ -169,7 +157,7 @@ const MaterialTypePage = () => {
                                     <option key={size} value={size}>{size}</option>
                                 ))}
                             </select>
-                            <Typography variant="small" color="blue-gray" className="font-normal whitespace-nowrap">
+                            <Typography variant="small" className="font-normal whitespace-nowrap">
                                 bản ghi mỗi trang
                             </Typography>
                         </div>
@@ -182,10 +170,20 @@ const MaterialTypePage = () => {
                     />
 
                     <div className="flex items-center justify-between border-t border-blue-gray-50 py-4">
-                        <Typography variant="small" color="blue-gray" className="font-normal">
+                        <Typography variant="small" className="font-normal">
                             Trang {currentPage + 1} / {totalPages} • {totalElements} bản ghi
                         </Typography>
-                        <ReactPaginate
+                        {/* <ReactPaginate
+                            previousLabel={<ArrowLeftIcon className="h-4 w-4" />}
+                            nextLabel={<ArrowRightIcon className="h-4 w-4" />}
+                            pageCount={totalPages}
+                            onPageChange={handlePageChange}
+                            containerClassName="flex items-center gap-1"
+                            activeClassName="bg-[#0ab067] text-white border-[#0ab067]"
+                            forcePage={currentPage}
+                        /> */}
+
+<ReactPaginate
                             previousLabel={<ArrowLeftIcon strokeWidth={2} className="h-4 w-4" />}
                             nextLabel={<ArrowRightIcon strokeWidth={2} className="h-4 w-4" />}
                             breakLabel="..."
@@ -227,8 +225,8 @@ const MaterialTypePage = () => {
                 onClose={() => setConfirmDialogOpen(false)}
                 onConfirm={() => {
                     if (pendingToggleRow) {
-                        toggleStatus(pendingToggleRow.id, pendingToggleRow.status); // truyền đúng giá trị mới
-                        setSuccessMessage("Cập nhật trạng thái thành công!");
+                        toggleStatus(pendingToggleRow.id, pendingToggleRow.status);
+                        setAlertMessage("Cập nhật trạng thái thành công!");
                         setSuccessAlertOpen(true);
                     }
                     setConfirmDialogOpen(false);
@@ -241,7 +239,14 @@ const MaterialTypePage = () => {
             <SuccessAlert
                 open={successAlertOpen}
                 onClose={() => setSuccessAlertOpen(false)}
-                message={successMessage}
+                message={alertMessage}
+            />
+
+            <SuccessAlert
+                open={errorAlertOpen}
+                onClose={() => setErrorAlertOpen(false)}
+                message={alertMessage}
+                severity="error"
             />
         </div>
     );

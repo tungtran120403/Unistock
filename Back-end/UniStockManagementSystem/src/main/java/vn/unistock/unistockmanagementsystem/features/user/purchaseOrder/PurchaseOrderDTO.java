@@ -22,6 +22,8 @@ public class PurchaseOrderDTO {
     private String supplierContactName;
     private String supplierAddress;
     private String supplierPhone;
+    private String purchaseRequestCode;
+    private Long purchaseRequestId;
 
     // Chi tiết đơn hàng - chỉ sử dụng cho chi tiết
     private List<PurchaseOrderDetailDTO> details;

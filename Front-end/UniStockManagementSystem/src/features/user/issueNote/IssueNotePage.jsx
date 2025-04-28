@@ -16,7 +16,7 @@ const IssueNotePage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   // Sử dụng 10 bản ghi mỗi trang như ReceiptNotePage
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [showImportPopup, setShowImportPopup] = useState(false);

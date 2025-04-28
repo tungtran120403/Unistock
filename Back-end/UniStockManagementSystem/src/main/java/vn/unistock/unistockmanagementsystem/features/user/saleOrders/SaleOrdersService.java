@@ -21,6 +21,7 @@ import vn.unistock.unistockmanagementsystem.features.user.purchaseRequests.Purch
 import vn.unistock.unistockmanagementsystem.security.filter.CustomUserDetails;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,9 +55,27 @@ public class SaleOrdersService {
         this.materialsRepository   = materialsRepository;
     }
 
-    public Page<SaleOrdersDTO> getAllOrders(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<SalesOrder> salesOrderPage = saleOrdersRepository.findAll(pageable);
+    public Page<SaleOrdersDTO> getFilteredOrders(
+            String orderCode,
+            String partnerName,
+            List<SalesOrder.OrderStatus> statuses,
+            Date startDate,
+            Date endDate,
+            int page,
+            int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "orderId"));
+
+        // Nếu statuses rỗng hoặc null, không áp dụng bộ lọc trạng thái
+        List<SalesOrder.OrderStatus> filterStatuses = statuses != null && !statuses.isEmpty() ? statuses : null;
+
+        Page<SalesOrder> salesOrderPage = saleOrdersRepository.findByFilters(
+                orderCode != null && !orderCode.isBlank() ? orderCode : null,
+                partnerName != null && !partnerName.isBlank() ? partnerName : null,
+                filterStatuses,
+                startDate,
+                endDate,
+                pageable);
+
         return salesOrderPage.map(saleOrder -> {
             SaleOrdersDTO dto = saleOrdersMapper.toDTO(saleOrder);
             enrichStatusLabel(dto, saleOrder);
@@ -404,4 +423,39 @@ public class SaleOrdersService {
 
         saleOrdersRepository.save(order);
     }
+
+    //kiểm tra đơn hàng đã được xuất đủ vật tư hay chưa
+    @Transactional(readOnly = true)
+    public boolean isSaleOrderFullyIssuedMaterial(Long orderId) {
+        SalesOrder order = saleOrdersRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        // Nếu không có detail nào => không cần kiểm tra
+        if (order.getDetails() == null || order.getDetails().isEmpty()) {
+            throw new RuntimeException("Đơn hàng không có sản phẩm nào.");
+        }
+
+        // Duyệt từng sản phẩm trong đơn hàng
+        for (SalesOrderDetail detail : order.getDetails()) {
+            List<SalesOrderMaterial> materials = detail.getMaterials();
+
+            if (materials == null || materials.isEmpty()) {
+                continue; // Nếu sản phẩm này không yêu cầu vật tư, bỏ qua
+            }
+
+            for (SalesOrderMaterial material : materials) {
+                int requiredQty = material.getRequiredQuantity();
+                int receivedQty = material.getReceivedQuantity();
+
+                if (receivedQty < requiredQty) {
+                    return false; // Nếu còn vật tư nào nhận thiếu ➔ đơn hàng chưa đủ
+                }
+            }
+        }
+
+        // Nếu duyệt hết không thiếu gì
+        return true;
+    }
+
+
 }

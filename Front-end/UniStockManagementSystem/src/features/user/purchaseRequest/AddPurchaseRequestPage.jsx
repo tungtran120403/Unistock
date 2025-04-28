@@ -72,6 +72,7 @@ const AddPurchaseRequestPage = () => {
   const [pageSize, setPageSize] = useState(5);
   const [quantityErrors, setQuantityErrors] = useState({});
   const [materialErrors, setMaterialErrors] = useState({});
+  const [supplierErrors, setSupplierErrors] = useState({});
   const [billOfMaterialsError, setBillOfMaterialsError] = useState("");
   const [errors, setErrors] = useState({});
   const [materialSuppliers, setMaterialSuppliers] = useState({});
@@ -186,11 +187,19 @@ const AddPurchaseRequestPage = () => {
       },
     ]);
     setNextId((id) => id + 1);
+    setMaterialErrors("");
+    setQuantityErrors("");
+    setSupplierErrors("");
+    setBillOfMaterialsError("");
   };
 
   const handleRemoveAllRows = () => {
     setItems([]);
     setNextId(1);
+    setBillOfMaterialsError("");
+    setMaterialErrors("");
+    setQuantityErrors("");
+    setSupplierErrors("");
   };
 
   const handleSupplierChange = (index, selectedOption) => {
@@ -311,7 +320,7 @@ const AddPurchaseRequestPage = () => {
       return;
     }
 
-    const newErrors = {};
+    const newSupplierErrors = {};
     const newQuantityErrors = {};
     const newMaterialErrors = {};
 
@@ -326,21 +335,21 @@ const AddPurchaseRequestPage = () => {
       const supplierIdNum = Number(item.supplierId);
 
       if (!materialIdNum || materialIdNum <= 0) {
-        newMaterialErrors[index] = "Vui lòng chọn vật tư hợp lệ!";
+        newMaterialErrors[index] = "Vui lòng chọn vật tư cho dòng này!";
       }
       if (!quantityNum || quantityNum <= 0) {
         newQuantityErrors[index] = "Số lượng phải lớn hơn 0!";
       }
       if (!supplierIdNum || supplierIdNum <= 0) {
-        newErrors[index] = "Vui lòng chọn nhà cung cấp!";
+        newSupplierErrors[index] = "Vui lòng chọn nhà cung cấp!";
       }
     });
 
-    setErrors(newErrors);
+    setSupplierErrors(newSupplierErrors);
     setQuantityErrors(newQuantityErrors);
     setMaterialErrors(newMaterialErrors);
     if (
-      Object.keys(newErrors).length > 0 ||
+      Object.keys(newSupplierErrors).length > 0 ||
       Object.keys(newMaterialErrors).length > 0 ||
       Object.keys(newQuantityErrors).length > 0
     ) {
@@ -557,11 +566,6 @@ const AddPurchaseRequestPage = () => {
               placeholder="Tìm kiếm"
             />
 
-            {billOfMaterialsError && (
-              <Typography className="text-xs text-red-500 mb-2 px-2">
-                {billOfMaterialsError}
-              </Typography>
-            )}
           </div>
           <div className="border border-gray-200 rounded mb-4 overflow-x-auto border-[rgba(224,224,224,1)]">
             <table className="w-full min-w-max text-left border-collapse border-[rgba(224,224,224,1)]">
@@ -597,9 +601,10 @@ const AddPurchaseRequestPage = () => {
                                 ? materials.find((m) => m.materialId === item.materialId) || null
                                 : null
                             }
-                            onChange={(event, selected) =>
+                            onChange={(event, selected) => {
                               handleMaterialChange(currentPage * pageSize + index, selected)
-                            }
+                              setMaterialErrors((prev) => ({ ...prev, [index]: "" }));
+                            }}
                             isOptionEqualToValue={(option, value) =>
                               option?.materialId === value?.materialId
                             }
@@ -670,9 +675,10 @@ const AddPurchaseRequestPage = () => {
                                     ) || null
                                   : null
                               }
-                              onChange={(event, selected) =>
-                                handleSupplierChange(currentPage * pageSize + index, selected)
-                              }
+                              onChange={(event, selected) => {
+                                handleSupplierChange(currentPage * pageSize + index, selected);
+                                setSupplierErrors((prev) => ({ ...prev, [index]: "" }));
+                              }}
                               isOptionEqualToValue={(option, value) =>
                                 option?.value === value?.value
                               }
@@ -715,9 +721,10 @@ const AddPurchaseRequestPage = () => {
                                   ) || null
                                 : null
                             }
-                            onChange={(event, selected) =>
-                              handleSupplierChange(currentPage * pageSize + index, selected)
-                            }
+                            onChange={(event, selected) => {
+                              handleSupplierChange(currentPage * pageSize + index, selected);
+                              setSupplierErrors((prev) => ({ ...prev, [index]: "" }));
+                            }}
                             isOptionEqualToValue={(option, value) =>
                               option?.value === value?.value
                             }
@@ -748,9 +755,9 @@ const AddPurchaseRequestPage = () => {
                             )}
                           />
                         )}
-                        {errors[currentPage * pageSize + index] && (
+                        {supplierErrors[currentPage * pageSize + index] && (
                           <Typography className="text-xs text-red-500 mt-1">
-                            {errors[currentPage * pageSize + index]}
+                            {supplierErrors[currentPage * pageSize + index]}
                           </Typography>
                         )}
                       </td>
@@ -815,6 +822,12 @@ const AddPurchaseRequestPage = () => {
               </tbody>
             </table>
           </div>
+
+          {billOfMaterialsError && (
+            <Typography color="red" className="text-sm pb-4">
+              {billOfMaterialsError}
+            </Typography>
+          )}
 
           {items.length > 0 && (
             <div className="flex items-center justify-between pb-4">
@@ -883,7 +896,6 @@ const AddPurchaseRequestPage = () => {
             </MuiButton>
             <Button
               size="lg"
-              disabled={loading || items.length === 0 || !!quantityValidationError}
               className="bg-[#0ab067] hover:bg-[#089456]/90 shadow-none text-white font-medium py-2 px-4 rounded-[4px] transition-all duration-200 ease-in-out flex items-center gap-2"
               onClick={handleSaveRequest}
             >

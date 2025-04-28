@@ -42,7 +42,7 @@ public class MaterialsService {
 
     // 🟢 Tạo nguyên vật liệu mới
     @Transactional
-    public MaterialsDTO createMaterial(MaterialsDTO materialDTO, String createdBy, MultipartFile image) throws IOException {
+    public MaterialsDTO createMaterial(MaterialsDTO materialDTO, MultipartFile image) throws IOException {
         if (materialsRepository.existsByMaterialCode(materialDTO.getMaterialCode())) {
             throw new IllegalArgumentException("Mã nguyên vật liệu đã tồn tại!");
         }
@@ -66,8 +66,6 @@ public class MaterialsService {
         }
 
         material.setIsUsing(materialDTO.getIsUsing() != null ? materialDTO.getIsUsing() : true);
-        material.setCreatedBy(createdBy);
-        material.setCreatedAt(LocalDateTime.now());
 
         // Xử lý upload ảnh
         if (image != null && !image.isEmpty()) {

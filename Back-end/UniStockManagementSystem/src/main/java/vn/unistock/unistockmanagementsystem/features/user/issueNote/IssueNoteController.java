@@ -144,4 +144,10 @@ public class IssueNoteController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/receive-outsource/pending-in-progress")
+    public ResponseEntity<List<ReceiveOutsourceDTO>> getPendingOrInProgressReceiveOutsource() {
+        List<ReceiveOutsourceDTO> result = issueNoteService.getPendingOrInProgressReceiveOutsource();
+        return ResponseEntity.ok(result);
+    }
+
 }

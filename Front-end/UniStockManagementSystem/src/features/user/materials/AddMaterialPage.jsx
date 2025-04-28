@@ -12,6 +12,9 @@ import { fetchActiveUnits } from "../unit/unitService";
 import PageHeader from '@/components/PageHeader';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { getPartnersByType } from "../partner/partnerService";
+import { fetchActiveMaterialTypes } from "../materialType/materialTypeService";
+
+
 
 const SUPPLIER_TYPE_ID = 2;
 
@@ -42,14 +45,14 @@ const AddMaterialPage = () => {
     useEffect(() => {
         const loadInitialData = async () => {
             try {
-                const [unitsData, categoriesData, suppliersData] = await Promise.all([
+                const [unitsData, activeCategoriesData, suppliersData] = await Promise.all([
                     fetchActiveUnits(),
-                    fetchMaterialCategories(),
+                    fetchActiveMaterialTypes(), // Thay thế fetchMaterialCategories() bằng fetchActiveMaterialTypes()
                     getPartnersByType(SUPPLIER_TYPE_ID)
                 ]);
 
                 setUnits(Array.isArray(unitsData) ? unitsData : []);
-                setMaterialCategories(categoriesData.content || []);
+                setMaterialCategories(activeCategoriesData || []); // Điều chỉnh để phù hợp với định dạng dữ liệu trả về
 
                 const mappedSuppliers = (suppliersData?.partners || [])
                     .map((s) => {

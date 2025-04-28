@@ -25,6 +25,11 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     Optional<Inventory> findByMaterial_MaterialIdAndWarehouse_WarehouseIdAndStatusAndSalesOrder(Long materialId, Long warehouseId, Inventory.InventoryStatus status, SalesOrder salesOrder);
     Optional<Inventory> findByProduct_ProductIdAndWarehouse_WarehouseIdAndStatusAndSalesOrder(Long productId, Long warehouseId, Inventory.InventoryStatus status, SalesOrder salesOrder);
 
+    // Thêm phương thức mới để lấy Inventory theo Product, trạng thái và SalesOrder
+    List<Inventory> findByProductAndStatusAndSalesOrder(Product product, Inventory.InventoryStatus status, SalesOrder salesOrder);
+
+    // Thêm phương thức mới để lấy Inventory theo Material, trạng thái và SalesOrder
+    List<Inventory> findByMaterialAndStatusAndSalesOrder(Material material, Inventory.InventoryStatus status, SalesOrder salesOrder);
     @Query("""
     SELECT i 
     FROM Inventory i 

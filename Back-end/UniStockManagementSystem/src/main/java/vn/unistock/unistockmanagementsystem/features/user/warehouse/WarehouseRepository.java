@@ -18,7 +18,6 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
     boolean existsByWarehouseCode(String warehouseCode);
     boolean existsByWarehouseCodeAndWarehouseIdNot(String warehouseCode, Long warehouseId);
 
-    Warehouse findByWarehouseName(String warehouseName);
     Warehouse findByWarehouseId(Long warehouseId);
 
     @Query("SELECT w FROM Warehouse w WHERE " +

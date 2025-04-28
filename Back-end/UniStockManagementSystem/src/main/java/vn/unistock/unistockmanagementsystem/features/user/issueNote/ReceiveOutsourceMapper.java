@@ -11,6 +11,10 @@ public interface ReceiveOutsourceMapper {
     @Mapping(source = "partner.partnerId", target = "partnerId")
     @Mapping(source = "partner.partnerName", target = "partnerName")
     @Mapping(source = "materials", target = "materials")
+    @Mapping(source = "goodIssueNote.ginCode", target = "ginCode")
+    @Mapping(source = "partner.phone", target = "partnerPhone")
+    @Mapping(source = "partner.address", target = "partnerAddress")
+    @Mapping(source = "partner.contactName", target = "partnerContactName")
     ReceiveOutsourceDTO toDTO(ReceiveOutsource entity);
 
     @Mapping(source = "material.materialId", target = "materialId")

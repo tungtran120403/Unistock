@@ -36,7 +36,6 @@ public class GoodIssueNote {
     @Column(name = "category", nullable = false)
     private String category;
 
-    @CreationTimestamp
     private LocalDateTime issueDate;
 
     @ManyToOne

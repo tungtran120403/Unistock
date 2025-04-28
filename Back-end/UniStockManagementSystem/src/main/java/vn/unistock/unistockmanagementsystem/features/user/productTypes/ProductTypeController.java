@@ -28,7 +28,7 @@ public class ProductTypeController {
     }
 
     @PatchMapping("/{typeId}/toggle-status")
-    public ResponseEntity<ProductTypeDTO> toggleStatus(
+    public ResponseEntity<ProductTypeDTO> toggleStatusProductType(
             @PathVariable Long typeId,
             @RequestBody Map<String, Boolean> statusRequest
     ) {

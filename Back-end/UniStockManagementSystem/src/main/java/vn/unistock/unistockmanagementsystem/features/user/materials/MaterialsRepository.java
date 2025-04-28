@@ -23,10 +23,10 @@ public interface MaterialsRepository extends JpaRepository<Material, Long> {
             "WHERE m.materialId = :materialId")
     Optional<Material> findByIdWithPartners(@Param("materialId") Long materialId);
 
-//    @Query("SELECT m FROM Material m JOIN m.materialPartners mp WHERE mp.partner.id = :partnerId")
-//    List<Material> findByPartnerId(@Param("partnerId") Long partnerId);
-
     @Query("SELECT m FROM Material m WHERE m.isUsing = true")
     List<Material> findAllByIsUsingTrue();
+
+    @Query("SELECT m FROM Material m WHERE :search IS NULL OR m.materialCode LIKE %:search% OR m.materialName LIKE %:search%")
+    List<Material> findByCodeOrName(@Param("search") String search);
 
 }

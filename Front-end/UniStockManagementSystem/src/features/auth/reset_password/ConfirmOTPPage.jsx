@@ -8,6 +8,7 @@ const ConfirmOTPPage = () => {
   // Chỉ cần trường OTP
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const { handleVerifyOtp, loading, error } = useForgotPassword();
   const navigate = useNavigate();
 
@@ -32,6 +33,11 @@ const ConfirmOTPPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+
+    if (!otp) {
+      setErrorMessage("Vui lòng nhập mã OTP để xác thực");
+      return;
+    }
   
     try {
       // Gọi hook
@@ -76,9 +82,14 @@ const ConfirmOTPPage = () => {
                 type="text"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                required
               />
             </div>
+            {/* Hiển thị lỗi từ state */}
+            {errorMessage && (
+              <Typography color="red" className="text-red-500">
+                {errorMessage}
+              </Typography>
+            )}
 
             {/* Hiển thị lỗi từ hook */}
             {error && (

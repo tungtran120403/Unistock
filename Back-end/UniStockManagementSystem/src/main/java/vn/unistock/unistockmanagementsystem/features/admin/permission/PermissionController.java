@@ -20,24 +20,24 @@ public class PermissionController {
         return ResponseEntity.ok(permissionService.getAllPermissions());
     }
 
-    // 🟢 API: Thêm quyền mới
-    @PostMapping
-    public ResponseEntity<PermissionDTO> createPermission(@RequestBody PermissionDTO dto) {
-        PermissionDTO newPermission = permissionService.createPermission(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(newPermission);
-    }
-
-    // 🟢 API: Cập nhật thông tin quyền
-    @PutMapping("/{id}")
-    public ResponseEntity<PermissionDTO> updatePermission(@PathVariable Long id, @RequestBody PermissionDTO dto) {
-        PermissionDTO updatedPermission = permissionService.updatePermission(id, dto);
-        return ResponseEntity.ok(updatedPermission);
-    }
-
-    // 🗑 API: Xóa quyền
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePermission(@PathVariable Long id) {
-        permissionService.deletePermission(id);
-        return ResponseEntity.noContent().build();
-    }
+//    // 🟢 API: Thêm quyền mới
+//    @PostMapping
+//    public ResponseEntity<PermissionDTO> createPermission(@RequestBody PermissionDTO dto) {
+//        PermissionDTO newPermission = permissionService.createPermission(dto);
+//        return ResponseEntity.status(HttpStatus.CREATED).body(newPermission);
+//    }
+//
+//    // 🟢 API: Cập nhật thông tin quyền
+//    @PutMapping("/{id}")
+//    public ResponseEntity<PermissionDTO> updatePermission(@PathVariable Long id, @RequestBody PermissionDTO dto) {
+//        PermissionDTO updatedPermission = permissionService.updatePermission(id, dto);
+//        return ResponseEntity.ok(updatedPermission);
+//    }
+//
+//    // 🗑 API: Xóa quyền
+//    @DeleteMapping("/{id}")
+//    public ResponseEntity<Void> deletePermission(@PathVariable Long id) {
+//        permissionService.deletePermission(id);
+//        return ResponseEntity.noContent().build();
+//    }
 }

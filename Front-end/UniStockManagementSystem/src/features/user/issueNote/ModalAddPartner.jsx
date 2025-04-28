@@ -48,10 +48,6 @@ const ModalAddPartner = ({ onClose, onSuccess, category }) => {
             setErrorPartnerName("Tên đối tác không được để trống.");
             isValid = false;
         }
-        if (!partner.email.trim()) {
-            setErrorEmail("Email không được để trống.");
-            isValid = false;
-        }
         if (!partner.phone.trim()) {
             setErrorPhone("Số điện thoại không được để trống.");
             isValid = false;

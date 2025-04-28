@@ -123,7 +123,7 @@ const SaleOrdersPage = () => {
   // Handle search
   const handleSearch = () => {
     setCurrentPage(0);
-    fetchPaginatedReceiptNotes(0, pageSize, searchTerm);
+    fetchPaginatedSaleOrders(0, pageSize);
   };
 
   useEffect(() => {

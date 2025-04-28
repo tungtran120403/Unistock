@@ -11,8 +11,12 @@ import java.util.List;
 public class ReceiveOutsourceDTO {
     private Long outsourceId;
     private Long ginId;
+    private String ginCode;
     private Long partnerId;
     private String partnerName;
+    private String partnerPhone;
+    private String partnerAddress;
+    private String partnerContactName;
     private String status;
     private LocalDateTime createdAt;
     private String createdBy;

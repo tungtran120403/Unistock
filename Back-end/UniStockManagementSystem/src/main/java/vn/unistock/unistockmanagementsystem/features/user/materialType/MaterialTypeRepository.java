@@ -16,5 +16,6 @@ public interface MaterialTypeRepository extends JpaRepository<MaterialType, Long
     Optional<MaterialType> findByNameIgnoreCase(String name);
     Optional<MaterialType> findByName(String name);
     Page<MaterialType> findAll(Pageable pageable);
+    boolean existsByNameIgnoreCase(String name);
 
 }

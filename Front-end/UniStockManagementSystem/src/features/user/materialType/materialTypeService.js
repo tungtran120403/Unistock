@@ -78,3 +78,35 @@ export const fetchActiveMaterialTypes = async () => {
     return [];
   }
 };
+
+export const checkNameExists = async (name, excludeId = null) => {
+  try {
+    const headers = authHeader();
+    if (!headers) {
+      throw new Error("No authentication token");
+    }
+
+    // Chuẩn hóa tên: loại bỏ khoảng trắng thừa
+    const normalizedName = name.trim();
+
+    // Đảm bảo excludeId là số nếu nó tồn tại
+    const params = {};
+    if (excludeId !== null && excludeId !== undefined) {
+      params.excludeId = Number(excludeId);
+    }
+
+    const response = await axios.get(
+      `${API_URL}/check-name/${encodeURIComponent(normalizedName)}`,
+      {
+        headers,
+        params,
+        withCredentials: true,
+      }
+    );
+
+    return response.data.exists;
+  } catch (error) {
+    console.error("Lỗi khi kiểm tra tên danh mục vật tư:", error);
+    throw error;
+  }
+};

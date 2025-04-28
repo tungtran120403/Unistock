@@ -1,6 +1,6 @@
 // useIssueNote.js
 import { useState, useEffect, useCallback } from "react";
-import { createIssueNote, getIssueNote, getIssueNotes, getNextCode, getSaleOrders, getMaterials, getProducts } from "./issueNoteService";
+import { createIssueNote, getIssueNote, getIssueNotes, getNextCode, getSaleOrders, getMaterials, getProducts, getPendingOrInProgressReceiveOutsources } from "./issueNoteService";
 
 const useIssueNote = (page = 0, size = 10) => {
   const [saleOrders, setSaleOrders] = useState([]);
@@ -109,6 +109,20 @@ const useIssueNote = (page = 0, size = 10) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, size]);
 
+  const fetchPendingReceiveOutsources = async () => {
+    setLoading(true);
+    try {
+      const data = await getPendingOrInProgressReceiveOutsources();
+      return data;
+    } catch (err) {
+      console.error("Lỗi khi lấy danh sách nhận gia công:", err);
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return { 
     saleOrders, 
     materials,     
@@ -120,7 +134,8 @@ const useIssueNote = (page = 0, size = 10) => {
     addIssueNote, 
     fetchNextCode, 
     fetchIssueNotes, 
-    fetchIssueNoteDetail 
+    fetchIssueNoteDetail,
+    fetchPendingReceiveOutsources
   };
 };
 

@@ -54,12 +54,12 @@ public class MailController {
         String inputOtp = payload.get("otp");
 
         if (email == null || inputOtp == null) {
-            return ResponseEntity.badRequest().body("Missing fields");
+            return ResponseEntity.badRequest().body("Vui lòng nhập mã OTP để xác thực!");
         }
 
         boolean isValid = otpService.validateOtp(email, inputOtp);
         if (!isValid) {
-            return ResponseEntity.badRequest().body("Invalid or expired OTP");
+            return ResponseEntity.badRequest().body("Mã OTP không hợp lệ!");
         }
 
         // 1. Tạo ephemeral token
@@ -91,7 +91,7 @@ public class MailController {
         // Tìm user
         User user = userRepository.findByEmail(email);
         if (user == null) {
-            return ResponseEntity.badRequest().body("User not found");
+            return ResponseEntity.badRequest().body("Tài khoản này không tồn tại");
         }
 
         // Đặt mật khẩu mới

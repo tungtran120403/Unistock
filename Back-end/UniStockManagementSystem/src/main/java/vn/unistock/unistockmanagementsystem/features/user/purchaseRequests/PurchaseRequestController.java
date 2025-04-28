@@ -18,7 +18,7 @@ public class PurchaseRequestController {
     public ResponseEntity<Page<PurchaseRequestDTO>> getAllPurchaseRequests(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "purchaseRequestId"));
         Page<PurchaseRequestDTO> requests = purchaseRequestService.getAllPurchaseRequests(pageable);
         return ResponseEntity.ok(requests);
     }
@@ -43,7 +43,7 @@ public class PurchaseRequestController {
     }
 
     @PutMapping("/{purchaseRequestId}/status")
-    public ResponseEntity<PurchaseRequestDTO> updateStatus(
+    public ResponseEntity<PurchaseRequestDTO> updatePurchaseRequestStatus(
             @PathVariable Long purchaseRequestId,
             @RequestBody UpdateStatusRequestDTO request) {
         PurchaseRequestDTO updatedRequest =

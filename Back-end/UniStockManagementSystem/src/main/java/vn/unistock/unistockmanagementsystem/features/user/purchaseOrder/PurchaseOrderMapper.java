@@ -14,6 +14,7 @@ public interface PurchaseOrderMapper {
     @Mapping(source = "partner.contactName", target = "supplierContactName")
     @Mapping(source = "partner.phone", target = "supplierPhone")
     @Mapping(source = "details", target = "details")
+    @Mapping(source = "purchaseRequest.purchaseRequestCode", target = "purchaseRequestCode")
     PurchaseOrderDTO toDTO(PurchaseOrder purchaseOrder);
 
     @Mapping(source = "supplierId", target = "partner.partnerId")

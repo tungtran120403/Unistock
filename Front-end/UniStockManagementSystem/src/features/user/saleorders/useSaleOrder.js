@@ -6,20 +6,23 @@ const useSaleOrder = () => {
   const [totalPages, setTotalPages] = useState(1); // ✅ Tổng số trang
   const [totalElements, setTotalElements] = useState(0); // ✅ Tổng số đơn hàng
 
-  // 🟢 **Lấy danh sách Sale Orders có phân trang**
+  // State cho filter và search
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+
+  // Lấy danh sách Sale Orders có phân trang, filter và search
   const fetchPaginatedSaleOrders = async (page = 0, size = 10) => {
     try {
-      const data = await getSaleOrders(page, size);
-      console.log("📢 API trả về dữ liệu:", data); // ✅ In dữ liệu để kiểm tra
-  
-      setSaleOrders(data.content || []); // ✅ Kiểm tra xem `data.content` có đúng không
+      const data = await getSaleOrders(page, size, searchTerm, selectedStatuses, startDate, endDate);
+      setSaleOrders(data.content || []);
       setTotalPages(data.totalPages || 1);
       setTotalElements(data.totalElements || 0);
     } catch (error) {
       console.error("❌ Không thể tải danh sách Sale Orders:", error);
     }
   };
-  
 
   // 🔄 **Toggle trạng thái đơn hàng**
   const toggleStatus = async (orderId, currentStatus) => {
@@ -71,8 +74,28 @@ const useSaleOrder = () => {
       throw err;
     }
   };
+  
+  // Gọi lại API khi các tham số thay đổi
+  useEffect(() => {
+    fetchPaginatedSaleOrders(0);
+  }, [searchTerm, selectedStatuses, startDate, endDate]);
 
-  return { saleOrders, fetchPaginatedSaleOrders, toggleStatus, totalPages, totalElements, getNextCode, addOrder, updateExistingOrder };
+  return { saleOrders,
+    fetchPaginatedSaleOrders,
+    toggleStatus,
+    totalPages,
+    totalElements,
+    getNextCode,
+    addOrder,
+    updateExistingOrder,
+    searchTerm,
+    setSearchTerm,
+    selectedStatuses,
+    setSelectedStatuses,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate, };
 };
 
 export default useSaleOrder;
