@@ -3,9 +3,7 @@ package vn.unistock.unistockmanagementsystem.features.user.saleOrders;
 import lombok.*;
 import vn.unistock.unistockmanagementsystem.entities.SalesOrder;
 
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @Getter
 @Setter
@@ -27,7 +25,7 @@ public class SaleOrdersDTO {
     private String rejectionReason;
 
     private Set<SalesOrderDetailDTO> orderDetails = new HashSet<>();
-
+    private List<SalesOrderMaterialDTO> materials = new ArrayList<>();
     private String address;
     private String phoneNumber;
     private String contactName;

@@ -16,6 +16,7 @@ import { fetchActiveMaterialTypes } from "../materialType/materialTypeService";
 import PageHeader from '@/components/PageHeader';
 import SuccessAlert from "@/components/SuccessAlert";
 import ImageUploadBox from '@/components/ImageUploadBox';
+import CircularProgress from '@mui/material/CircularProgress';
 
 const SUPPLIER_TYPE_ID = 2;
 
@@ -31,12 +32,13 @@ const DetailMaterialPage = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [errors, setErrors] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
-  const [materialCodeError, setMaterialCodeError] = useState(""); // Thêm state cho lỗi trùng mã
+  const [materialCodeError, setMaterialCodeError] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
       try {
         const [materialData, unitsData, categoriesData, suppliersData] = await Promise.all([
           getMaterialById(id),
@@ -61,13 +63,13 @@ const DetailMaterialPage = () => {
 
         const mappedMaterial = {
           ...materialData,
-          supplierIds: materialData.supplierIds || []
+          supplierIds: materialData.supplierIds || [],
+          lowStockThreshold: materialData.lowStockThreshold || '',
         };
 
         setMaterial(mappedMaterial);
         setEditedMaterial(mappedMaterial);
 
-        // ✨ Xử lý đơn vị
         let activeUnits = unitsData || [];
         const unitExists = activeUnits.some(unit => unit.unitId === materialData.unitId);
         if (!unitExists && materialData.unitId && materialData.unitName) {
@@ -78,7 +80,6 @@ const DetailMaterialPage = () => {
         }
         setUnits(activeUnits);
 
-        // ✨ Xử lý danh mục vật tư
         let activeCategories = categoriesData || [];
         const typeExists = activeCategories.some(cat => cat.materialTypeId === materialData.typeId);
         if (!typeExists && materialData.typeId && materialData.typeName) {
@@ -91,13 +92,14 @@ const DetailMaterialPage = () => {
 
       } catch (error) {
         console.error("Error loading material details:", error);
-        setErrors({ message: "Không thể tải thông tin nguyên vật liệu" });
+        setErrors({ message: "Không thể tải thông tin vật tư" });
+      } finally {
+        setLoading(false);
       }
     };
     loadData();
   }, [id]);
 
-  // Hàm kiểm tra trùng mã vật tư
   const handleCheckMaterialCode = async (newCode) => {
     setMaterialCodeError("");
     setValidationErrors(prev => ({
@@ -114,11 +116,11 @@ const DetailMaterialPage = () => {
       try {
         const exists = await checkMaterialCodeExists(newCode, id);
         if (exists) {
-          setMaterialCodeError("Mã nguyên vật liệu này đã tồn tại!");
+          setMaterialCodeError("Mã vật tư này đã tồn tại!");
         }
       } catch (error) {
-        console.error("❌ Lỗi kiểm tra mã nguyên vật liệu:", error);
-        setMaterialCodeError("Lỗi khi kiểm tra mã nguyên vật liệu!");
+        console.error("❌ Lỗi kiểm tra mã vật tư:", error);
+        setMaterialCodeError("Lỗi khi kiểm tra mã vật tư!");
       }
     }
   };
@@ -131,7 +133,7 @@ const DetailMaterialPage = () => {
     setEditedMaterial(material);
     setIsEditing(false);
     setValidationErrors({});
-    setMaterialCodeError(""); // Reset lỗi trùng mã
+    setMaterialCodeError("");
     setPreviewImage(null);
   };
 
@@ -139,10 +141,10 @@ const DetailMaterialPage = () => {
     const newErrors = {};
 
     if (!editedMaterial.materialCode || editedMaterial.materialCode.trim() === "") {
-      newErrors.materialCode = "Mã nguyên vật liệu không được để trống!";
+      newErrors.materialCode = "Mã vật tư không được để trống!";
     }
     if (!editedMaterial.materialName || editedMaterial.materialName.trim() === "") {
-      newErrors.materialName = "Tên nguyên vật liệu không được để trống!";
+      newErrors.materialName = "Tên vật tư không được để trống!";
     }
     if (!editedMaterial.unitId) {
       newErrors.unitId = "Vui lòng chọn đơn vị!";
@@ -156,12 +158,11 @@ const DetailMaterialPage = () => {
 
     setValidationErrors(newErrors);
 
-    // Kiểm tra lỗi trùng mã
     if (editedMaterial.materialCode !== material.materialCode) {
       const codeExists = await checkMaterialCodeExists(editedMaterial.materialCode, id);
       if (codeExists) {
-        setMaterialCodeError("Mã nguyên vật liệu đã tồn tại!");
-        newErrors.materialCode = "Mã nguyên vật liệu đã tồn tại!";
+        setMaterialCodeError("Mã vật tư đã tồn tại!");
+        newErrors.materialCode = "Mã vật tư đã tồn tại!";
       }
     }
 
@@ -177,6 +178,13 @@ const DetailMaterialPage = () => {
         if (editedMaterial.supplierIds && editedMaterial.supplierIds.length > 0) {
           editedMaterial.supplierIds.forEach(id => formData.append("supplierIds", id));
         }
+
+        // Chỉ gửi lowStockThreshold nếu giá trị > 0
+        const lowStockThresholdValue = parseFloat(editedMaterial.lowStockThreshold);
+        if (lowStockThresholdValue > 0) {
+          formData.append("lowStockThreshold", lowStockThresholdValue);
+        }
+
         if (editedMaterial.image) {
           formData.append("image", editedMaterial.image);
         }
@@ -188,11 +196,13 @@ const DetailMaterialPage = () => {
         setShowSuccessAlert(true);
         setMaterial({
           ...updatedMaterial,
-          supplierIds: updatedMaterial.supplierIds || []
+          supplierIds: updatedMaterial.supplierIds || [],
+          lowStockThreshold: updatedMaterial.lowStockThreshold || '',
         });
         setEditedMaterial({
           ...updatedMaterial,
-          supplierIds: updatedMaterial.supplierIds || []
+          supplierIds: updatedMaterial.supplierIds || [],
+          lowStockThreshold: updatedMaterial.lowStockThreshold || '',
         });
         setPreviewImage(null);
       } catch (error) {
@@ -214,14 +224,33 @@ const DetailMaterialPage = () => {
     }));
   };
 
-  if (!material || !editedMaterial) return <div>Loading...</div>;
+  const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-8 flex flex-col gap-12">
       <Card className="bg-gray-50 p-7 rounded-none shadow-none">
         <CardBody className="pb-2 bg-white rounded-xl">
           <PageHeader
-            title="Chi tiết nguyên vật liệu"
+            title="Chi tiết vật tư"
             showAdd={false}
             showImport={false}
             showExport={false}
@@ -235,14 +264,14 @@ const DetailMaterialPage = () => {
             <div className="flex flex-col gap-4">
               <div>
                 <Typography variant="medium" className="mb-1 text-black">
-                  Mã nguyên vật liệu
+                  Mã vật tư
                   {isEditing && <span className="text-red-500"> *</span>}
                 </Typography>
                 <TextField
                   fullWidth
                   size="small"
                   hiddenLabel
-                  placeholder="Mã nguyên vật liệu"
+                  placeholder="Mã vật tư"
                   color="success"
                   value={editedMaterial?.materialCode || ""}
                   onChange={(e) => handleCheckMaterialCode(e.target.value)}
@@ -305,6 +334,43 @@ const DetailMaterialPage = () => {
 
               <div>
                 <Typography variant="medium" className="mb-1 text-black">
+                  Ngưỡng tồn kho thấp
+                  {isEditing && <span className="text-red-500"> *</span>}
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  hiddenLabel
+                  type="number"
+                  color="success"
+                  value={editedMaterial?.lowStockThreshold || ""}
+                  onChange={(e) => {
+                    if (isEditing) {
+                      const value = e.target.value;
+                      // Không cho phép nhập số âm
+                      if (value === '' || parseFloat(value) >= 0) {
+                        setEditedMaterial(prev => ({
+                          ...prev,
+                          lowStockThreshold: value
+                        }));
+                      }
+                    }
+                  }}
+                  disabled={!isEditing}
+                  inputProps={{ min: 0 }} // Đặt giá trị tối thiểu là 0
+                  sx={{
+                    '& .MuiInputBase-root.Mui-disabled': {
+                      bgcolor: '#eeeeee',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        border: 'none',
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              <div>
+                <Typography variant="medium" className="mb-1 text-black">
                   Mô tả
                 </Typography>
                 <TextField
@@ -340,14 +406,14 @@ const DetailMaterialPage = () => {
             <div className="flex flex-col gap-4">
               <div>
                 <Typography variant="medium" className="mb-1 text-black">
-                  Tên nguyên vật liệu
+                  Tên vật tư
                   {isEditing && <span className="text-red-500"> *</span>}
                 </Typography>
                 <TextField
                   fullWidth
                   size="small"
                   hiddenLabel
-                  placeholder="Tên nguyên vật liệu"
+                  placeholder="Tên vật tư"
                   color="success"
                   value={editedMaterial?.materialName || ""}
                   onChange={(e) => {
@@ -465,7 +531,7 @@ const DetailMaterialPage = () => {
               </div>
               <div>
                 <Typography variant="medium" className="mb-1 text-black">
-                  Hình ảnh nguyên vật liệu
+                  Hình ảnh vật tư
                 </Typography>
                 {isEditing && (
                   <ImageUploadBox
@@ -571,7 +637,7 @@ const DetailMaterialPage = () => {
       <SuccessAlert
         open={showSuccessAlert}
         onClose={() => setShowSuccessAlert(false)}
-        message="Cập nhật nguyên vật liệu thành công!" // Sửa message cho phù hợp
+        message="Cập nhật vật tư thành công!"
       />
     </div>
   );

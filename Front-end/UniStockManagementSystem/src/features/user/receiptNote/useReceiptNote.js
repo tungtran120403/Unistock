@@ -17,8 +17,8 @@ const useReceiptNote = () => {
   const [error, setError] = useState(null);
 
   // Fetch paginated receipt notes
-  const fetchPaginatedReceiptNotes = async (page, size, searchTerm = "", categories = [], startDate = null, endDate = null) => {
-    setLoading(true);
+  const fetchPaginatedReceiptNotes = async (page, size, searchTerm = "", categories = [], startDate = null, endDate = null, showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const response = await fetchReceiptNotes(page, size, searchTerm, categories, startDate, endDate);
@@ -31,8 +31,8 @@ const useReceiptNote = () => {
       setError(error.message || "Có lỗi xảy ra khi tải dữ liệu");
       return { content: [], totalPages: 0, totalElements: 0 };
     } finally {
-      setLoading(false);
-    }
+      if (showLoading) setLoading(false);
+  }
   };
   
   // Get a single receipt note by ID

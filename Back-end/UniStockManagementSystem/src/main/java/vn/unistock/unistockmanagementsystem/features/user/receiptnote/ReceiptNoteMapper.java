@@ -21,6 +21,7 @@ public interface ReceiptNoteMapper {
     @Mapping(source = "createdBy.email", target = "createdByEmail")
     @Mapping(source = "purchaseOrder.poCode", target = "poCode")
     @Mapping(source = "goodIssueNote.ginCode", target = "ginCode")
+    @Mapping(source = "goodIssueNote.ginId", target = "ginId")
     ReceiptNoteDTO toDTO(GoodReceiptNote entity);
 
     @Mapping(source = "poId", target = "purchaseOrder.poId")

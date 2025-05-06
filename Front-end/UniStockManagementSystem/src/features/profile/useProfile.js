@@ -66,6 +66,16 @@ const useProfile = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
+      const phone = profile.phone.trim();
+
+      // ✅ Validate số điện thoại (chỉ số, 10-11 chữ số)
+      const phoneRegex = /^\d{10,11}$/; // CHUẨN: chỉ cần 1 dấu \d
+      if (!phoneRegex.test(phone)) {
+        setError('Số điện thoại phải có 10-11 số');
+        setLoading(false);
+        return false;
+      }
+
       await updateProfile({
         fullname: profile.fullName.trim(),
         email: profile.email.trim(),
@@ -73,8 +83,10 @@ const useProfile = () => {
       });
       setIsEditing(false);
       setError(null);
+      return true;
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi cập nhật profile');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -87,18 +99,21 @@ const useProfile = () => {
         currentPassword,
         newPassword,
       });
-      setError(null);
+      setErrorCurrentPassword(null);
+      setErrorNewPassword(null);
+      setErrorConfirmPassword(null);  
       resetPasswordForm(); // Reset form khi thành công
       setOpenChangePassword(false); // Đóng modal khi thành công
+      return true; 
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Lỗi khi đổi mật khẩu';
       console.log("Error in handleChangePassword:", errorMsg);
-      setError(errorMsg);
       if (errorMsg.includes("Mật khẩu hiện tại không chính xác")) {
         setErrorCurrentPassword(errorMsg);
       } else {
         setErrorConfirmPassword(errorMsg);
       }
+      return false;
     } finally {
       setLoading(false);
     }
@@ -109,7 +124,20 @@ const useProfile = () => {
     try {
       const avatarUrl = await uploadAvatar(file);
       setProfile((prev) => ({ ...prev, avatar: avatarUrl || '' }));
+
+      const storedUser = JSON.parse(localStorage.getItem("userProfile") || '{}');
+      console.log("📢 getUser() - profile:", storedUser);
+
+      const updatedUser = { ...storedUser, avatar: avatarUrl };
+      console.log("📢 getUser() - updatedUser:", updatedUser);
+
+      localStorage.setItem("userProfile", JSON.stringify(updatedUser));
+
       setError(null);
+
+      localStorage.setItem('avatarUploadSuccess', 'true');
+
+      window.location.reload();
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi upload ảnh đại diện');
     } finally {
@@ -119,6 +147,7 @@ const useProfile = () => {
 
   const handleInputChange = (field) => (e) => {
     setProfile((prev) => ({ ...prev, [field]: e.target.value }));
+    setError(null);
   };
 
   return {

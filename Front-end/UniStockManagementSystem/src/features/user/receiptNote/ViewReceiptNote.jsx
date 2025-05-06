@@ -22,14 +22,14 @@ import ReactPaginate from "react-paginate";
 import { ArrowLeftIcon, ArrowRightIcon, ListBulletIcon } from "@heroicons/react/24/outline";
 import { InformationCircleIcon } from "@heroicons/react/24/solid";
 import { FaArrowLeft } from "react-icons/fa";
-import { XMarkIcon } from "@heroicons/react/24/solid";
+import CircularProgress from '@mui/material/CircularProgress';
 import dayjs from "dayjs";
 
 const ViewReceiptNote = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getReceiptNote } = useReceiptNote();
-  const { getUserById } = useUser();
+  // const { getUserById } = useUser();
   const [data, setData] = useState(null);
   const [creator, setCreator] = useState("Đang tải...");
   const [loading, setLoading] = useState(true);
@@ -127,9 +127,9 @@ const ViewReceiptNote = () => {
         setData(receipt);
         console.log("Phiếu nhập: ", receipt);
         if (receipt.createdBy) {
-          const user = await getUserById(receipt.createdBy);
-          console.log("Người tạo phiếu nhập: ", user);
-          setCreator(user.username || user.email || "Không xác định");
+          // const user = await getUserById(receipt.createdBy);
+          // console.log("Người tạo phiếu nhập: ", user);
+          setCreator(receipt.createdByUsername || user.email || "Không xác định");
           setPartnerName(receipt.partnerName || "");
           setContactName(receipt.contactName || "");
           setAddress(receipt.address || "");
@@ -147,7 +147,26 @@ const ViewReceiptNote = () => {
   const formatDate = (dateStr) => dayjs(dateStr).format("DD/MM/YYYY");
 
   // Nếu đang tải hoặc không có data, hiển thị thông báo thích hợp
-  if (loading) return <Typography>Đang tải dữ liệu...</Typography>;
+  const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
   if (!data) return <Typography className="text-red-500">Không tìm thấy phiếu nhập</Typography>;
 
   // Phân trang cho bảng danh sách hàng hóa
@@ -303,8 +322,8 @@ const ViewReceiptNote = () => {
     saveAs(new Blob([excelBuffer]), `PhieuNhap_${data.grnCode}.xlsx`);
   };
 
-  if (loading) return <Typography>Đang tải dữ liệu...</Typography>;
-  if (!data) return <Typography className="text-red-500">Không tìm thấy phiếu nhập</Typography>;
+  // if (loading) return <Typography>Đang tải dữ liệu...</Typography>;
+  // if (!data) return <Typography className="text-red-500">Không tìm thấy phiếu nhập</Typography>;
 
   return (
     <div className="mb-8 flex flex-col gap-12">

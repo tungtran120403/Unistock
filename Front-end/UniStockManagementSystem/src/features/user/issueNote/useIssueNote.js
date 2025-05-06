@@ -68,8 +68,8 @@ const useIssueNote = (page = 0, size = 10) => {
   }, []);
 
   // Các hàm khác...
-  const fetchIssueNotes = async () => {
-    setLoading(true);
+  const fetchIssueNotes = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const data = await getIssueNotes(page, size);
       console.log("Dữ liệu issue notes:", data);
@@ -81,7 +81,7 @@ const useIssueNote = (page = 0, size = 10) => {
       console.error("Lỗi khi lấy Issue Notes:", err);
       setError(err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 

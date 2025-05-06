@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ReactPaginate from "react-paginate";
 import { Card, CardBody, Typography } from "@material-tailwind/react";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { FaAngleDown } from "react-icons/fa";
 import { getStockMovementReportPaginated } from "./reportService";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const StockMovementReportPage = () => {
     const [currentPage, setCurrentPage] = useState(0);
@@ -46,8 +47,41 @@ const StockMovementReportPage = () => {
     const [reportData, setReportData] = useState([]);
     const [totalElements, setTotalElements] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [isFirstLoad, setIsFirstLoad] = useState(true);  // ✅ Thêm dòng này
 
-    const fetchStockMovementReport = async (page = currentPage, size = pageSize) => {
+    const [currentUser, setCurrentUser] = useState(null);
+          const location = useLocation();
+        
+          useEffect(() => {
+                    // Lấy thông tin user từ localStorage
+                    const storedUser = localStorage.getItem("user");
+                    if (storedUser) {
+                        try {
+                            setCurrentUser(JSON.parse(storedUser));
+                        } catch (err) {
+                            console.error("Lỗi parse JSON từ localStorage:", err);
+                        }
+                    }
+            
+                    if (location.state?.successMessage) {
+                        console.log("Component mounted, location.state:", location.state?.successMessage);
+                        setAlertMessage(location.state.successMessage);
+                        setShowSuccessAlert(true);
+                        // Xóa state để không hiển thị lại nếu người dùng refresh
+                        window.history.replaceState({}, document.title);
+                    }
+                }, [location.state]);
+          useEffect(() => {
+                  if (currentUser && !currentUser.permissions?.includes("getInventoryReport")) {
+                    navigate("/unauthorized");
+                  }
+                }, [currentUser, navigate]);
+    const fetchStockMovementReport = async (page = currentPage, size = pageSize, isFirstLoad) => {
+        if (isFirstLoad) {
+            setLoading(true);
+        }
+
         try {
             // Thay đổi lệnh gọi API trong fetchStockMovementReport
             const res = await getStockMovementReportPaginated({
@@ -80,6 +114,10 @@ const StockMovementReportPage = () => {
             setTotalPages(rawData.totalPages);
         } catch (error) {
             console.error("Error fetching stock movement report:", error);
+        } finally {
+            if (isFirstLoad) {
+                setLoading(false);
+            }
         }
     };
 
@@ -88,14 +126,20 @@ const StockMovementReportPage = () => {
         if (currentPage !== 0) {
             setCurrentPage(0);
         } else {
-            fetchStockMovementReport(0, pageSize);
+            fetchStockMovementReport(0, pageSize, isFirstLoad);
+            if (isFirstLoad) {
+                setIsFirstLoad(false);  // ✅ Sau lần đầu, tắt flag này
+            }
         }
-    }, [searchTerm, selectedItemType, hasMovementOnly, startDate, endDate, quantityFilters]);
+    }, [searchTerm, selectedItemType, hasMovementOnly, startDate, endDate, quantityFilters, isFirstLoad]);
 
     // Giữ nguyên useEffect này để xử lý khi chuyển trang
     useEffect(() => {
-        fetchStockMovementReport(currentPage, pageSize);
-    }, [currentPage, pageSize]);
+        fetchStockMovementReport(currentPage, pageSize, isFirstLoad);
+        if (isFirstLoad) {
+            setIsFirstLoad(false);  // ✅ Sau lần đầu, tắt flag này
+        }
+    }, [currentPage, pageSize, isFirstLoad]);
 
 
     useEffect(() => {
@@ -123,12 +167,12 @@ const StockMovementReportPage = () => {
     const handleItemTypeChange = (value) => {
         setSelectedItemType(value);
         setCurrentPage(0);
-      };
-      
-      const handleMovementFilterChange = (value) => {
+    };
+
+    const handleMovementFilterChange = (value) => {
         setHasMovementOnly(value);
         setCurrentPage(0);
-      };
+    };
 
     // Handle export to PDF
     const handleExportPDF = () => {
@@ -322,8 +366,29 @@ const StockMovementReportPage = () => {
     // const paginatedData = filteredData.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
     const pageCount = totalPages || 1;
 
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+        <div className="mb-8 flex flex-col gap-12">
             <Card className="bg-gray-50 p-7 rounded-none shadow-none">
                 <CardBody className="pb-2 bg-white rounded-xl">
                     <PageHeader

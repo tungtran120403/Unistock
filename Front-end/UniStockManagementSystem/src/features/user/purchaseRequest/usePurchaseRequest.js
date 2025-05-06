@@ -10,19 +10,22 @@ const usePurchaseRequest = () => {
   const [purchaseRequests, setPurchaseRequests] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(false); // ✅ New loading state
 
-  const fetchPurchaseRequests = async (page = 0, size = 10) => {
+  const fetchPurchaseRequests = async (page = 0, size = 10, search = '', statuses = [], startDate = null, endDate = null) => {
+    setLoading(true);
     try {
-      const data = await getPurchaseRequests(page, size);
+      const data = await getPurchaseRequests(page, size, search, statuses, startDate, endDate);
       setPurchaseRequests(data.content || []);
       setTotalPages(data.totalPages || 1);
       setTotalElements(data.totalElements || 0);
     } catch (error) {
       console.error("❌ Error fetching purchase requests:", error);
-      // Set empty state on error
       setPurchaseRequests([]);
       setTotalPages(1);
       setTotalElements(0);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,6 +87,7 @@ const usePurchaseRequest = () => {
     purchaseRequests,
     totalPages,
     totalElements,
+    loading,
     fetchPurchaseRequests,
     getNextCode,
     addRequest,

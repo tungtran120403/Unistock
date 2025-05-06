@@ -27,16 +27,24 @@ public class RoleController {
 
     // 🟢 API: Thêm mới vai trò
     @PostMapping
-    public ResponseEntity<RoleDTO> createRole(@RequestBody RoleDTO dto) {
-        RoleDTO newRole = roleService.createRole(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(newRole);
+    public ResponseEntity<?> createRole(@RequestBody RoleDTO dto) {
+        try {
+            RoleDTO newRole = roleService.createRole(dto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(newRole);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
     }
 
     // 🟢 API: Cập nhật thông tin vai trò
     @PutMapping("/{id}")
-    public ResponseEntity<RoleDTO> updateRole(@PathVariable Long id, @RequestBody RoleDTO dto) {
-        RoleDTO updatedRole = roleService.updateRole(id, dto);
-        return ResponseEntity.ok(updatedRole);
+    public ResponseEntity<?> updateRole(@PathVariable Long id, @RequestBody RoleDTO dto) {
+        try {
+            RoleDTO updatedRole = roleService.updateRole(id, dto);
+            return ResponseEntity.ok(updatedRole);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
     }
 
     // 🔄 API: Cập nhật trạng thái active của vai trò

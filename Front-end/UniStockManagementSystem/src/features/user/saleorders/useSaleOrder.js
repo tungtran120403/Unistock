@@ -5,6 +5,7 @@ const useSaleOrder = () => {
   const [saleOrders, setSaleOrders] = useState([]); // ✅ Danh sách đơn hàng
   const [totalPages, setTotalPages] = useState(1); // ✅ Tổng số trang
   const [totalElements, setTotalElements] = useState(0); // ✅ Tổng số đơn hàng
+  const [loading, setLoading] = useState(false); // ✅ New loading state
 
   // State cho filter và search
   const [searchTerm, setSearchTerm] = useState("");
@@ -14,6 +15,7 @@ const useSaleOrder = () => {
 
   // Lấy danh sách Sale Orders có phân trang, filter và search
   const fetchPaginatedSaleOrders = async (page = 0, size = 10) => {
+    setLoading(true);
     try {
       const data = await getSaleOrders(page, size, searchTerm, selectedStatuses, startDate, endDate);
       setSaleOrders(data.content || []);
@@ -21,6 +23,8 @@ const useSaleOrder = () => {
       setTotalElements(data.totalElements || 0);
     } catch (error) {
       console.error("❌ Không thể tải danh sách Sale Orders:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -85,6 +89,7 @@ const useSaleOrder = () => {
     toggleStatus,
     totalPages,
     totalElements,
+    loading,
     getNextCode,
     addOrder,
     updateExistingOrder,

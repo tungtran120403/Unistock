@@ -41,7 +41,4 @@ public interface PartnerRepository extends JpaRepository<Partner, Long> {
     WHERE LOWER(p.partnerName) = LOWER(:partnerName)
       AND pt.partnerType.typeId = :partnerTypeId""")
     Optional<Partner> findByPartnerNameAndPartnerTypeId(@Param("partnerName") String partnerName, @Param("partnerTypeId") Long partnerTypeId);
-
-
-    boolean existsByPartnerNameAndPartnerId(String partnerName, Long partnerId);
 }

@@ -13,11 +13,12 @@ import {
     Button as MuiButton,
     IconButton,
     Divider,
+    Box
 } from '@mui/material';
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import WarningIcon from '@mui/icons-material/Warning';
 
-const CancelSaleOrderModal = ({ open, onClose, onConfirm }) => {
+const CancelSaleOrderModal = ({ open, onClose, onConfirm, orderStatus }) => {
     const [reason, setReason] = useState("");
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [error, setError] = useState();
@@ -28,8 +29,8 @@ const CancelSaleOrderModal = ({ open, onClose, onConfirm }) => {
             return;
         }
 
-        const confirmed = window.confirm("Bạn có chắc chắn muốn huỷ đơn hàng này? Việc hủy đơn hàng cũng sẽ hủy yêu cầu mua vật tư cho đơn hàng này");
-        if (!confirmed) return;
+        // const confirmed = window.confirm("Bạn có chắc chắn muốn huỷ đơn hàng này? Việc hủy đơn hàng cũng sẽ hủy yêu cầu mua vật tư cho đơn hàng này");
+        // if (!confirmed) return;
 
         onConfirm(reason);
         onClose();
@@ -46,7 +47,7 @@ const CancelSaleOrderModal = ({ open, onClose, onConfirm }) => {
 
     return (
         <div>
-            <Dialog open={open} handler={handleClose} size="md" className="px-4 py-2">
+            <Dialog open={open} handler={handleClose} size="sm" className="px-4 py-2">
                 <DialogHeader className="flex justify-between items-center pb-2">
                     <Typography variant="h4" color="blue-gray">
                         Huỷ đơn hàng
@@ -57,6 +58,27 @@ const CancelSaleOrderModal = ({ open, onClose, onConfirm }) => {
                 </DialogHeader>
                 <Divider variant="middle" />
                 <DialogBody className="space-y-4 pb-6 pt-6">
+                    {orderStatus !== 'PROCESSING' && (
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                gap: 2,
+                                p: 2,
+                                bgcolor: '#fff5e5', // hoặc tự set: '#ffebee'
+                                alignItems: 'flex-start',
+                            }}
+                        >
+                            <WarningIcon sx={{ color: 'warning.main', fontSize: 28, mt: 1 }} />
+                            <Box>
+                                <Typography variant="h6" className="text-black">
+                                    Cảnh báo
+                                </Typography>
+                                <Typography variant="medium" className="text-black mb-1">
+                                    Việc huỷ đơn hàng cũng sẽ huỷ yêu cầu mua vật tư cho đơn hàng này.
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
                     <div>
                         <Typography variant="medium" className="text-black mb-1">
                             Lý do huỷ <span className="text-red-500">*</span>

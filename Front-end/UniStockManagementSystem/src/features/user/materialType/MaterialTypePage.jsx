@@ -16,9 +16,13 @@ import PageHeader from '@/components/PageHeader';
 import Table from "@/components/Table";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SuccessAlert from "@/components/SuccessAlert";
+import StatusFilterButton from "@/components/StatusFilterButton";
+import TableSearch from '@/components/TableSearch';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useNavigate, useLocation } from "react-router-dom";
 
 const MaterialTypePage = () => {
-    const { materialTypes, fetchMaterialTypes, toggleStatus, createMaterialType, updateMaterialType, totalPages, totalElements, loading } = useMaterialType();
+    const { materialTypes, fetchMaterialTypes, toggleStatus, createMaterialType, updateMaterialType, totalPages, applyFilters, totalElements, loading } = useMaterialType();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -29,10 +33,66 @@ const MaterialTypePage = () => {
     const [editMaterialType, setEditMaterialType] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
+    const [statusAnchorEl, setStatusAnchorEl] = useState(null);
+
+    const navigate = useNavigate();
+    const [currentUser, setCurrentUser] = useState(null);
+      const location = useLocation();
+    
+      useEffect(() => {
+                // Lấy thông tin user từ localStorage
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    try {
+                        setCurrentUser(JSON.parse(storedUser));
+                    } catch (err) {
+                        console.error("Lỗi parse JSON từ localStorage:", err);
+                    }
+                }
+        
+                if (location.state?.successMessage) {
+                    console.log("Component mounted, location.state:", location.state?.successMessage);
+                    setAlertMessage(location.state.successMessage);
+                    setShowSuccessAlert(true);
+                    // Xóa state để không hiển thị lại nếu người dùng refresh
+                    window.history.replaceState({}, document.title);
+                }
+            }, [location.state]);
+      useEffect(() => {
+              if (currentUser && !currentUser.permissions?.includes("getAllMaterialTypes")) {
+                navigate("/unauthorized");
+              }
+            }, [currentUser, navigate]);
+    const allStatuses = [
+        {
+            value: true,
+            label: "Đang hoạt động",
+            className: "bg-green-50 text-green-800",
+        },
+        {
+            value: false,
+            label: "Ngừng hoạt động",
+            className: "bg-red-50 text-red-800",
+        },
+    ];
 
     useEffect(() => {
-        fetchMaterialTypes(currentPage, pageSize);
-    }, [currentPage, pageSize, fetchMaterialTypes]);
+        const filters = buildFilters();
+        applyFilters(filters, currentPage, pageSize);
+    }, [currentPage, pageSize, searchTerm, selectedStatuses]);
+
+    const buildFilters = () => ({
+        search: searchTerm || undefined,
+        statuses: selectedStatuses.length
+            ? selectedStatuses.map(s => s.value)
+            : undefined,
+    });
+
+    const handleSearch = () => {
+        applyFilters(buildFilters(), currentPage, pageSize);
+    };
 
     const handlePageChange = (selectedItem) => {
         setCurrentPage(selectedItem.selected);
@@ -126,11 +186,33 @@ const MaterialTypePage = () => {
 
     const data = materialTypes.map((type, index) => ({
         id: type.materialTypeId,
+        materialTypeId: type.materialTypeId,  
         index: (currentPage * pageSize) + index + 1,
         name: type.name,
         description: type.description,
         status: type.status,
     }));
+
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="mb-8 flex flex-col gap-12">
@@ -161,6 +243,26 @@ const MaterialTypePage = () => {
                                 bản ghi mỗi trang
                             </Typography>
                         </div>
+                        <div className="mb-3 flex flex-wrap items-center gap-4">
+                            {/* Filter by status */}
+                            <StatusFilterButton
+                                anchorEl={statusAnchorEl}
+                                setAnchorEl={setStatusAnchorEl}
+                                selectedStatuses={selectedStatuses}
+                                setSelectedStatuses={setSelectedStatuses}
+                                allStatuses={allStatuses}
+                                buttonLabel="Trạng thái"
+                            />
+                            {/* Search input */}
+                            <div className="w-[250px]">
+                                <TableSearch
+                                    value={searchTerm}
+                                    onChange={setSearchTerm}
+                                    onSearch={handleSearch}
+                                    placeholder="Tìm kiếm sản phẩm"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     <Table
@@ -183,7 +285,7 @@ const MaterialTypePage = () => {
                             forcePage={currentPage}
                         /> */}
 
-<ReactPaginate
+                        <ReactPaginate
                             previousLabel={<ArrowLeftIcon strokeWidth={2} className="h-4 w-4" />}
                             nextLabel={<ArrowRightIcon strokeWidth={2} className="h-4 w-4" />}
                             breakLabel="..."

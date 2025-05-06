@@ -10,22 +10,19 @@ const authHeader = () => {
 };
 
 // Lấy danh sách đơn hàng có phân trang, tìm kiếm và lọc trạng thái
-export const fetchPurchaseOrders = async (page, size, searchKeyword = '', status = '') => {
-  try {
-    const queryParams = new URLSearchParams({ page, size });
-    if (searchKeyword) queryParams.append("search", searchKeyword);
-    if (status) queryParams.append("status", status);
+export const fetchPurchaseOrders = async (page, size, searchKeyword = '', status = '', startDate = null, endDate = null) => {
+  const queryParams = new URLSearchParams({ page, size });
+  if (searchKeyword) queryParams.append("search", searchKeyword);
+  if (status) queryParams.append("status", status);
+  if (startDate) queryParams.append("startDate", startDate.toISOString());
+  if (endDate) queryParams.append("endDate", endDate.toISOString());
 
-    const response = await axios.get(`${API_URL}?${queryParams.toString()}`, { headers: authHeader() });
-    return {
+  const response = await axios.get(`${API_URL}?${queryParams.toString()}`, { headers: authHeader() });
+  return {
       data: response.data.content,
       totalPages: response.data.totalPages,
       totalElements: response.data.totalElements,
-    };
-  } catch (error) {
-    console.error("Lỗi khi lấy danh sách đơn hàng:", error);
-    throw error;
-  }
+  };
 };
 
 // Lấy chi tiết đơn hàng theo ID
@@ -126,5 +123,12 @@ export const fetchPendingOrInProgressOrders = async () => {
     console.error("Lỗi khi lấy đơn hàng chờ nhận hoặc đã nhập một phần:", error);
     throw error;
   }
+};
+
+export const getPurchaseRequestById = async (requestId) => {
+  const response = await axios.get(`${import.meta.env.VITE_API_URL}/user/purchase-requests/${requestId}`, {
+    headers: authHeader(),
+  });
+  return response.data;
 };
 

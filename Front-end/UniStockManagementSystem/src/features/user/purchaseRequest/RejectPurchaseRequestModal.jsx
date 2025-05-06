@@ -12,30 +12,37 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 
 const RejectPurchaseRequestModal = ({ show, handleClose, onConfirm }) => {
     const [reason, setReason] = useState("");
+    const [error, setError] = useState("");
 
     const handleSubmit = () => {
         if (!reason.trim()) {
-            alert("Vui lòng nhập lý do từ chối");
+            setError("Vui lòng nhập lý do từ chối");
             return;
         }
 
-        const confirmed = window.confirm("Bạn có chắc chắn muốn từ chối yêu cầu mua vật tư này?");
-        if (!confirmed) return;
+        // const confirmed = window.confirm("Bạn có chắc chắn muốn từ chối yêu cầu mua vật tư này?");
+        // if (!confirmed) return;
 
         onConfirm(reason);
         handleClose();
         setReason("");
+        setError("");
     };
 
     if (!show) return null;
 
     return (
-        <Dialog open={true} handler={handleClose} size="md" className="px-4 py-2">
+        <Dialog open={true} handler={(e) => {setError(""); handleClose();}} size="md" className="px-4 py-2">
             <DialogHeader className="flex justify-between items-center pb-2">
                 <Typography variant="h4" color="blue-gray">
                     Từ chối yêu cầu mua vật tư
                 </Typography>
-                <IconButton size="small" variant="text" onClick={handleClose}>
+                <IconButton size="small" variant="text"
+                    onClick={(e) => {
+                        setError("");
+                        handleClose();
+                    }}
+                >
                     <XMarkIcon className="h-5 w-5 stroke-2" />
                 </IconButton>
             </DialogHeader>
@@ -54,8 +61,16 @@ const RejectPurchaseRequestModal = ({ show, handleClose, onConfirm }) => {
                         rows={4}
                         color="success"
                         value={reason}
-                        onChange={(e) => setReason(e.target.value)}
+                        onChange={(e) => {
+                            setReason(e.target.value);
+                            setError(""); // Reset error when user types
+                        }}
                     />
+                    {error && (
+                        <Typography className="text-xs text-red-500 mt-1">
+                            {error}
+                        </Typography>
+                    )}
                 </div>
             </DialogBody>
 

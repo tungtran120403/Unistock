@@ -25,34 +25,39 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class SaleOrdersService {
     private final SaleOrdersRepository saleOrdersRepository;
+    private final SalesOrderMaterialRepository salesOrderMaterialRepository;
     private final SaleOrdersMapper saleOrdersMapper;
     private final PartnerRepository partnerRepository;
     private final ProductsRepository productsRepository;
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final InventoryRepository inventoryRepository;
     private final PurchaseRequestService purchaseRequestService;
-    private final MaterialsRepository  materialsRepository;
+    private final MaterialsRepository materialsRepository;
 
     public SaleOrdersService(SaleOrdersRepository saleOrdersRepository,
+                             SalesOrderMaterialRepository salesOrderMaterialRepository,
                              SaleOrdersMapper saleOrdersMapper,
                              PartnerRepository partnerRepository,
                              ProductsRepository productsRepository,
                              PurchaseRequestRepository purchaseRequestRepository,
                              InventoryRepository inventoryRepository,
                              PurchaseRequestService purchaseRequestService,
-                             MaterialsRepository materialsRepository   ) {
+                             MaterialsRepository materialsRepository) {
         this.saleOrdersRepository = saleOrdersRepository;
+        this.salesOrderMaterialRepository = salesOrderMaterialRepository;
         this.saleOrdersMapper = saleOrdersMapper;
         this.partnerRepository = partnerRepository;
         this.productsRepository = productsRepository;
         this.purchaseRequestRepository = purchaseRequestRepository;
         this.inventoryRepository = inventoryRepository;
         this.purchaseRequestService = purchaseRequestService;
-        this.materialsRepository   = materialsRepository;
+        this.materialsRepository = materialsRepository;
     }
 
     public Page<SaleOrdersDTO> getFilteredOrders(
@@ -65,7 +70,6 @@ public class SaleOrdersService {
             int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "orderId"));
 
-        // Nếu statuses rỗng hoặc null, không áp dụng bộ lọc trạng thái
         List<SalesOrder.OrderStatus> filterStatuses = statuses != null && !statuses.isEmpty() ? statuses : null;
 
         Page<SalesOrder> salesOrderPage = saleOrdersRepository.findByFilters(
@@ -108,7 +112,7 @@ public class SaleOrdersService {
                 dto.setStatusLabel("Chưa có yêu cầu");
             } else {
                 boolean allCancelled = requests.stream()
-                        .allMatch(r -> r.getStatus() == PurchaseRequest.RequestStatus.CANCELLED);
+                        .allMatch(r -> r.getStatus() == PurchaseRequest.RequestStatus.REJECTED);
                 boolean anyConfirmed = requests.stream()
                         .anyMatch(r -> r.getStatus() == PurchaseRequest.RequestStatus.CONFIRMED);
 
@@ -149,11 +153,9 @@ public class SaleOrdersService {
             Product product = detail.getProduct();
             double quantityToRelease = detail.getQuantity();
 
-            // Fetch all RESERVED inventory for this product
             List<Inventory> reservedInventories = inventoryRepository.findByProductIdAndStatus(
                     product.getProductId(), Inventory.InventoryStatus.RESERVED);
 
-            // Group quantities by warehouse
             Map<Long, Double> warehouseQuantities = new HashMap<>();
             for (Inventory inventory : reservedInventories) {
                 if (quantityToRelease <= 0) break;
@@ -167,7 +169,6 @@ public class SaleOrdersService {
                 quantityToRelease -= quantityToReleaseFromThis;
             }
 
-            // Consolidate inventory for each warehouse
             for (Map.Entry<Long, Double> entry : warehouseQuantities.entrySet()) {
                 Long warehouseId = entry.getKey();
                 double releasedQuantity = entry.getValue();
@@ -178,7 +179,6 @@ public class SaleOrdersService {
                         .map(Inventory::getWarehouse)
                         .orElseThrow(() -> new RuntimeException("Warehouse not found for warehouseId: " + warehouseId));
 
-                // Find or create AVAILABLE inventory
                 Inventory availableInventory = inventoryRepository.findByWarehouseAndProductAndStatus(
                                 warehouse, product, Inventory.InventoryStatus.AVAILABLE)
                         .orElse(null);
@@ -196,7 +196,6 @@ public class SaleOrdersService {
                 availableInventory.setSalesOrder(null);
                 inventoryRepository.save(availableInventory);
 
-                // Delete RESERVED records for this warehouse
                 List<Inventory> reservedToDelete = reservedInventories.stream()
                         .filter(inv -> inv.getWarehouse().getWarehouseId().equals(warehouseId))
                         .toList();
@@ -204,84 +203,77 @@ public class SaleOrdersService {
             }
 
             if (quantityToRelease > 0) {
-                // Log warning if insufficient RESERVED inventory
                 System.err.println("Insufficient RESERVED inventory for productId " + product.getProductId() +
                         ": " + quantityToRelease + " units remaining");
             }
         }
 
         // Release RESERVED inventory for materials
+        List<SalesOrderMaterial> materials = order.getMaterials();
+        for (SalesOrderMaterial material : materials) {
+            Material mat = material.getMaterial();
+            double quantityToRelease = material.getRequiredQuantity();
+
+            List<Inventory> reservedInventories = inventoryRepository.findByMaterialIdAndStatus(
+                    mat.getMaterialId(), Inventory.InventoryStatus.RESERVED);
+
+            Map<Long, Double> warehouseQuantities = new HashMap<>();
+            for (Inventory inventory : reservedInventories) {
+                if (quantityToRelease <= 0) break;
+
+                double quantityInInventory = inventory.getQuantity();
+                double quantityToReleaseFromThis = Math.min(quantityInInventory, quantityToRelease);
+
+                Long warehouseId = inventory.getWarehouse().getWarehouseId();
+                warehouseQuantities.merge(warehouseId, quantityToReleaseFromThis, Double::sum);
+
+                quantityToRelease -= quantityToReleaseFromThis;
+            }
+
+            for (Map.Entry<Long, Double> entry : warehouseQuantities.entrySet()) {
+                Long warehouseId = entry.getKey();
+                double releasedQuantity = entry.getValue();
+
+                Warehouse warehouse = reservedInventories.stream()
+                        .filter(inv -> inv.getWarehouse().getWarehouseId().equals(warehouseId))
+                        .findFirst()
+                        .map(Inventory::getWarehouse)
+                        .orElseThrow(() -> new RuntimeException("Warehouse not found for warehouseId: " + warehouseId));
+
+                Inventory availableInventory = inventoryRepository.findByWarehouseAndMaterialAndStatus(
+                                warehouse, mat, Inventory.InventoryStatus.AVAILABLE)
+                        .orElse(null);
+
+                if (availableInventory == null) {
+                    availableInventory = Inventory.builder()
+                            .warehouse(warehouse)
+                            .material(mat)
+                            .status(Inventory.InventoryStatus.AVAILABLE)
+                            .quantity(0.0)
+                            .build();
+                }
+                availableInventory.setQuantity(availableInventory.getQuantity() + releasedQuantity);
+                availableInventory.setLastUpdated(LocalDateTime.now());
+                availableInventory.setSalesOrder(null);
+                inventoryRepository.save(availableInventory);
+
+                List<Inventory> reservedToDelete = reservedInventories.stream()
+                        .filter(inv -> inv.getWarehouse().getWarehouseId().equals(warehouseId))
+                        .toList();
+                inventoryRepository.deleteAll(reservedToDelete);
+            }
+
+            if (quantityToRelease > 0) {
+                System.err.println("Insufficient RESERVED inventory for materialId " + mat.getMaterialId() +
+                        ": " + quantityToRelease + " units remaining");
+            }
+        }
+
+        // Cancel related purchase requests
         List<PurchaseRequest> requests = purchaseRequestRepository.findAllBySalesOrder_OrderId(orderId);
         for (PurchaseRequest pr : requests) {
             pr.setStatus(PurchaseRequest.RequestStatus.CANCELLED);
             pr.setRejectionReason("Đơn hàng đã bị hủy");
-
-            List<PurchaseRequestDetail> prDetails = pr.getPurchaseRequestDetails();
-            for (PurchaseRequestDetail detail : prDetails) {
-                Material material = detail.getMaterial();
-                double quantityToRelease = detail.getQuantity();
-
-                // Fetch all RESERVED inventory for this material
-                List<Inventory> reservedInventories = inventoryRepository.findByMaterialIdAndStatus(
-                        material.getMaterialId(), Inventory.InventoryStatus.RESERVED);
-
-                // Group quantities by warehouse
-                Map<Long, Double> warehouseQuantities = new HashMap<>();
-                for (Inventory inventory : reservedInventories) {
-                    if (quantityToRelease <= 0) break;
-
-                    double quantityInInventory = inventory.getQuantity();
-                    double quantityToReleaseFromThis = Math.min(quantityInInventory, quantityToRelease);
-
-                    Long warehouseId = inventory.getWarehouse().getWarehouseId();
-                    warehouseQuantities.merge(warehouseId, quantityToReleaseFromThis, Double::sum);
-
-                    quantityToRelease -= quantityToReleaseFromThis;
-                }
-
-                // Consolidate inventory for each warehouse
-                for (Map.Entry<Long, Double> entry : warehouseQuantities.entrySet()) {
-                    Long warehouseId = entry.getKey();
-                    double releasedQuantity = entry.getValue();
-
-                    Warehouse warehouse = reservedInventories.stream()
-                            .filter(inv -> inv.getWarehouse().getWarehouseId().equals(warehouseId))
-                            .findFirst()
-                            .map(Inventory::getWarehouse)
-                            .orElseThrow(() -> new RuntimeException("Warehouse not found for warehouseId: " + warehouseId));
-
-                    // Find or create AVAILABLE inventory
-                    Inventory availableInventory = inventoryRepository.findByWarehouseAndMaterialAndStatus(
-                                    warehouse, material, Inventory.InventoryStatus.AVAILABLE)
-                            .orElse(null);
-
-                    if (availableInventory == null) {
-                        availableInventory = Inventory.builder()
-                                .warehouse(warehouse)
-                                .material(material)
-                                .status(Inventory.InventoryStatus.AVAILABLE)
-                                .quantity(0.0)
-                                .build();
-                    }
-                    availableInventory.setQuantity(availableInventory.getQuantity() + releasedQuantity);
-                    availableInventory.setLastUpdated(LocalDateTime.now());
-                    availableInventory.setSalesOrder(null);
-                    inventoryRepository.save(availableInventory);
-
-                    // Delete RESERVED records for this warehouse
-                    List<Inventory> reservedToDelete = reservedInventories.stream()
-                            .filter(inv -> inv.getWarehouse().getWarehouseId().equals(warehouseId))
-                            .toList();
-                    inventoryRepository.deleteAll(reservedToDelete);
-                }
-
-                if (quantityToRelease > 0) {
-                    // Log warning if insufficient RESERVED inventory
-                    System.err.println("Insufficient RESERVED inventory for materialId " + material.getMaterialId() +
-                            ": " + quantityToRelease + " units remaining");
-                }
-            }
-
             purchaseRequestRepository.save(pr);
         }
 
@@ -290,8 +282,6 @@ public class SaleOrdersService {
 
     @Transactional
     public SaleOrdersDTO createSaleOrder(SaleOrdersDTO dto) {
-
-        /* Xác thực user login */
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
@@ -299,14 +289,12 @@ public class SaleOrdersService {
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
         User currentUser = userDetails.getUser();
 
-        /* Tìm kiếm Partner */
         Partner partner = partnerRepository.findByPartnerCode(dto.getPartnerCode())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "Partner not found with code: " + dto.getPartnerCode()
                 ));
 
-        /* Bổ sung productId cho từng chi tiết nếu FE chỉ gửi productCode */
         if (dto.getOrderDetails() != null) {
             dto.getOrderDetails().forEach(detailDTO -> {
                 Product prod = productsRepository.findByProductCode(detailDTO.getProductCode())
@@ -318,9 +306,7 @@ public class SaleOrdersService {
             });
         }
 
-        /* ⭐ Mapper cần truyền materialsRepository */
         SalesOrder order = saleOrdersMapper.toEntity(dto, materialsRepository);
-
         order.setPartner(partner);
         order.setCreatedByUser(currentUser);
 
@@ -328,18 +314,21 @@ public class SaleOrdersService {
             order.setStatus(SalesOrder.OrderStatus.PROCESSING);
         }
 
-        /* Bảo đảm mỗi detail trỏ về order + product persistent */
         if (order.getDetails() != null) {
             order.getDetails().forEach(detail -> {
                 detail.setSalesOrder(order);
                 Product persistentProduct =
                         productsRepository.getReferenceById(detail.getProduct().getProductId());
                 detail.setProduct(persistentProduct);
+            });
+        }
 
-                /* Set lại quan hệ ngược cho materials */
-                if (detail.getMaterials() != null) {
-                    detail.getMaterials().forEach(mat -> mat.setSalesOrderDetail(detail));
-                }
+        if (order.getMaterials() != null) {
+            order.getMaterials().forEach(material -> {
+                material.setSalesOrder(order);
+                Material persistentMaterial =
+                        materialsRepository.getReferenceById(material.getMaterial().getMaterialId());
+                material.setMaterial(persistentMaterial);
             });
         }
 
@@ -349,7 +338,6 @@ public class SaleOrdersService {
 
     @Transactional
     public SaleOrdersDTO updateSaleOrder(Long orderId, SaleOrdersDTO dto) {
-
         SalesOrder existing = saleOrdersRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
 
@@ -361,31 +349,86 @@ public class SaleOrdersService {
         partner.setPhone(dto.getPhoneNumber());
         partner.setContactName(dto.getContactName());
 
-        /* ⭐ Mapper với repo */
         SalesOrder mapped = saleOrdersMapper.toEntity(dto, materialsRepository);
         mapped.setPartner(partner);
         mapped.setOrderId(existing.getOrderId());
 
         if (mapped.getStatus() == null) mapped.setStatus(existing.getStatus());
 
-        /* --- Xoá detail cũ --- */
-        for (SalesOrderDetail d : existing.getDetails()) {
-            d.getMaterials().clear();
-        }
+        // First, track existing details by their ID for potential updates
+        Map<Long, SalesOrderDetail> existingDetailsMap = existing.getDetails().stream()
+                .filter(d -> d.getOrderDetailId() != null)
+                .collect(Collectors.toMap(SalesOrderDetail::getOrderDetailId, d -> d));
+
+// Clear the current details list
         existing.getDetails().clear();
 
-        /* --- Thêm detail mới --- */
         if (mapped.getDetails() != null) {
             for (SalesOrderDetail detail : mapped.getDetails()) {
                 detail.setSalesOrder(existing);
-                Product persistProd =
-                        productsRepository.getReferenceById(detail.getProduct().getProductId());
+                Product persistProd = productsRepository.getReferenceById(detail.getProduct().getProductId());
                 detail.setProduct(persistProd);
-                if (detail.getMaterials() != null) {
-                    detail.getMaterials().forEach(m -> m.setSalesOrderDetail(detail));
+
+                if (detail.getOrderDetailId() != null && existingDetailsMap.containsKey(detail.getOrderDetailId())) {
+                    // Update existing detail
+                    SalesOrderDetail existingDetail = existingDetailsMap.get(detail.getOrderDetailId());
+                    existingDetail.setQuantity(detail.getQuantity());
+                    existingDetail.setReceivedQuantity(detail.getReceivedQuantity());
+                    // ... any other fields to update
+                    existing.getDetails().add(existingDetail);
+                } else {
+                    // New detail (no ID)
+                    existing.getDetails().add(detail);
                 }
-                existing.getDetails().add(detail);
             }
+        }
+
+
+        // Handle materials to avoid duplicates
+        if (mapped.getMaterials() != null) {
+            // Fetch all existing materials from the database
+            List<SalesOrderMaterial> existingMaterials = salesOrderMaterialRepository.findBySalesOrderOrderId(orderId);
+            Map<Long, SalesOrderMaterial> existingMaterialsMap = new HashMap<>();
+            for (SalesOrderMaterial material : existingMaterials) {
+                existingMaterialsMap.put(material.getMaterial().getMaterialId(), material);
+            }
+
+            // Clear the in-memory materials list
+            existing.getMaterials().clear();
+
+            // Process new materials from DTO
+            for (SalesOrderMaterial material : mapped.getMaterials()) {
+                Material persistMat = materialsRepository.getReferenceById(material.getMaterial().getMaterialId());
+                material.setMaterial(persistMat);
+                material.setSalesOrder(existing);
+
+                // Check if the material exists in the database
+                Optional<SalesOrderMaterial> dbMaterial = salesOrderMaterialRepository
+                        .findBySalesOrderOrderIdAndMaterialMaterialId(orderId, persistMat.getMaterialId());
+                if (dbMaterial.isPresent()) {
+                    // Update existing material
+                    SalesOrderMaterial existingMaterial = dbMaterial.get();
+                    existingMaterial.setRequiredQuantity(material.getRequiredQuantity());
+                    existingMaterial.setReceivedQuantity(material.getReceivedQuantity());
+                    existing.getMaterials().add(existingMaterial);
+                    salesOrderMaterialRepository.save(existingMaterial);
+                } else {
+                    // Add new material
+                    existing.getMaterials().add(material);
+                }
+            }
+
+            // Remove materials that are no longer in the DTO
+            existingMaterialsMap.forEach((materialId, existingMaterial) -> {
+                if (!mapped.getMaterials().stream()
+                        .anyMatch(m -> m.getMaterial().getMaterialId().equals(materialId))) {
+                    salesOrderMaterialRepository.delete(existingMaterial);
+                }
+            });
+        } else {
+            // If no materials in DTO, remove all existing materials
+            salesOrderMaterialRepository.deleteBySalesOrderOrderId(orderId);
+            existing.getMaterials().clear();
         }
 
         mapped.setCreatedByUser(existing.getCreatedByUser());
@@ -394,7 +437,6 @@ public class SaleOrdersService {
         SalesOrder saved = saleOrdersRepository.save(existing);
         return saleOrdersMapper.toDTO(saved);
     }
-
 
     @Transactional
     public void setPreparingMaterialStatus(PrepareMaterialForSaleOrderDTO request) {
@@ -424,38 +466,24 @@ public class SaleOrdersService {
         saleOrdersRepository.save(order);
     }
 
-    //kiểm tra đơn hàng đã được xuất đủ vật tư hay chưa
     @Transactional(readOnly = true)
     public boolean isSaleOrderFullyIssuedMaterial(Long orderId) {
         SalesOrder order = saleOrdersRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
 
-        // Nếu không có detail nào => không cần kiểm tra
-        if (order.getDetails() == null || order.getDetails().isEmpty()) {
-            throw new RuntimeException("Đơn hàng không có sản phẩm nào.");
+        if (order.getMaterials() == null || order.getMaterials().isEmpty()) {
+            return true; // Nếu không có vật tư yêu cầu, coi như đã đủ
         }
 
-        // Duyệt từng sản phẩm trong đơn hàng
-        for (SalesOrderDetail detail : order.getDetails()) {
-            List<SalesOrderMaterial> materials = detail.getMaterials();
+        for (SalesOrderMaterial material : order.getMaterials()) {
+            int requiredQty = material.getRequiredQuantity();
+            int receivedQty = material.getReceivedQuantity();
 
-            if (materials == null || materials.isEmpty()) {
-                continue; // Nếu sản phẩm này không yêu cầu vật tư, bỏ qua
-            }
-
-            for (SalesOrderMaterial material : materials) {
-                int requiredQty = material.getRequiredQuantity();
-                int receivedQty = material.getReceivedQuantity();
-
-                if (receivedQty < requiredQty) {
-                    return false; // Nếu còn vật tư nào nhận thiếu ➔ đơn hàng chưa đủ
-                }
+            if (receivedQty < requiredQty) {
+                return false; // Nếu còn vật tư nào nhận thiếu ➔ đơn hàng chưa đủ
             }
         }
 
-        // Nếu duyệt hết không thiếu gì
         return true;
     }
-
-
 }

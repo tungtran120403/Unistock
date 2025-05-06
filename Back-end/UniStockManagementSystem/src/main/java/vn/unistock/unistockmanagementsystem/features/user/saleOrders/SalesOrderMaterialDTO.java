@@ -16,4 +16,5 @@ public class SalesOrderMaterialDTO {
     private String  unitName;
     private Integer requiredQuantity;
     private Integer receivedQuantity;
+    private Long orderId;
 }

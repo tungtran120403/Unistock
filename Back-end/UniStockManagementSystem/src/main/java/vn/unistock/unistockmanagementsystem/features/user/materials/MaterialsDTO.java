@@ -29,4 +29,5 @@ public class MaterialsDTO {
     private Boolean isUsing;
     private MultipartFile image;
     private List<Long> supplierIds;
+    private Double lowStockThreshold;
 }

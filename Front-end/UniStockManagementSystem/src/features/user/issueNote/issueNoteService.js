@@ -1,4 +1,5 @@
 import axios from "axios";
+import dayjs from 'dayjs';
 
 const API_URL = `${import.meta.env.VITE_API_URL}/user/issuenote`; // ✅ API Sale Orders
 
@@ -48,11 +49,18 @@ export const getProducts = async (page, size) => {
   }
 };
 
-export const getIssueNotes = async (page, size) => {
+export const getIssueNotes = async (page, size, search = '', categories = [], startDate = null, endDate = null) => {
   try {
+    const params = new URLSearchParams({ page, size });
+    if (search) params.append('search', search);
+    if (categories && categories.length > 0) {
+      categories.forEach(category => params.append('categories', category));
+    }
+    if (startDate) params.append('startDate', dayjs(startDate).format('YYYY-MM-DD'));
+    if (endDate) params.append('endDate', dayjs(endDate).format('YYYY-MM-DD'));
     const response = await axios.get(API_URL, {
-      params: { page, size },
       headers: authHeader(),
+      params,
     });
     return response.data;
   } catch (error) {
@@ -60,7 +68,6 @@ export const getIssueNotes = async (page, size) => {
     throw error;
   }
 };
-
 
 export const createIssueNote = async (issueNote) => {
     try {
@@ -177,4 +184,6 @@ export const createIssueNote = async (issueNote) => {
       throw error;
     }
   };
+
+  
   

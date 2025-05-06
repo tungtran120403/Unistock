@@ -9,7 +9,7 @@ import robotoFont from '@/assets/fonts/Roboto-Regular-normal.js';
 import robotoBoldFont from '@/assets/fonts/Roboto-Regular-bold.js';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import CircularProgress from '@mui/material/CircularProgress';
 import { saveAs } from "file-saver";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -57,7 +57,27 @@ const ViewIssueNote = () => {
     fetchDetail();
   }, [id, fetchIssueNoteDetail]);
 
-  if (loading) return <Typography>Đang tải dữ liệu...</Typography>;
+  const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
+
   if (!data) return <Typography className="text-red-500">Không tìm thấy phiếu xuất</Typography>;
 
   const totalItems = data.details ? data.details.length : 0;
@@ -137,6 +157,89 @@ const ViewIssueNote = () => {
       },
     ];
   };
+
+  const columnsExpectedMaterials = [
+    {
+      field: "index",
+      headerName: "STT",
+      minWidth: 50,
+      flex: 0.5,
+      filterable: false,
+      editable: false,
+      renderCell: (params) => <div className="text-center">{params.row.index + 1}</div>,
+    },
+    {
+      field: "materialCode",
+      headerName: "Mã NVL",
+      minWidth: 100,
+      flex: 1,
+      filterable: false,
+      editable: false,
+      renderCell: (params) => (
+        <div className="text-center">{params.row.materialCode}</div>
+      ),
+    },
+    {
+      field: "materialName",
+      headerName: "Tên NVL",
+      minWidth: 150,
+      flex: 2,
+      filterable: false,
+      editable: false,
+      renderCell: (params) => (
+        <div className="text-center">{params.row.materialName}</div>
+      ),
+    },
+    {
+      field: "quantity",
+      headerName: "Số lượng dự kiến",
+      minWidth: 100,
+      flex: 1,
+      filterable: false,
+      editable: false,
+      renderCell: (params) => (
+        <div className="text-center">{params.row.quantity}</div>
+      ),
+    },
+    {
+      field: "receivedQuantity",
+      headerName: "Đã nhập",
+      minWidth: 100,
+      flex: 1,
+      filterable: false,
+      editable: false,
+      renderCell: (params) => (
+        <div className="text-center">{params.row.receivedQuantity ?? 0}</div>
+      ),
+    },
+    {
+      field: "remainingQuantity",
+      headerName: "Chưa nhập",
+      minWidth: 100,
+      flex: 1,
+      filterable: false,
+      editable: false,
+      renderCell: (params) => (
+        <div className="text-center">{params.row.remainingQuantity ?? (params.row.quantity ?? 0)}</div>
+      ),
+    },
+    {
+      field: "unitName",
+      headerName: "Đơn vị",
+      minWidth: 100,
+      flex: 1,
+      filterable: false,
+      editable: false,
+      renderCell: (params) => (
+        <div className="text-center">{params.row.unitName}</div>
+      ),
+    },
+  ];
+
+  const expectedMaterials = data.receiveOutsource?.materials?.map((item, idx) => ({
+    ...item,
+    index: idx,
+  }));
 
   const columnsConfig = getColumnsConfig(data.category);
 
@@ -386,7 +489,7 @@ const ViewIssueNote = () => {
                     to={`/user/sale-orders/${data.soId}`}
                     className="text-blue-600 hover:underline text-sm block mt-1"
                   >
-                    {`${data.soCode}`}
+                    Xem chứng từ
                   </Link>
                 ) : (
                   <TextField
@@ -406,7 +509,7 @@ const ViewIssueNote = () => {
                 )}
               </div>
             )}
-            
+
             {data.category === "Sản xuất" && data.receiver && (
               <div>
                 <Typography variant="medium" className="mb-1 text-black">
@@ -565,7 +668,7 @@ const ViewIssueNote = () => {
             <ListBulletIcon className="h-5 w-5 mr-2" />
             Danh sách hàng hóa
           </Typography>
-          <div className="overflow-auto border rounded">
+          <div className="overflow-auto">
             <Table
               data={displayedItemsWithIndex}
               columnsConfig={columnsConfig}

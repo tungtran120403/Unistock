@@ -24,6 +24,6 @@ public class SalesOrderDetailDTO {
     private Integer receivedQuantity;
     private Integer remainingQuantity;
     private String unitName; // Đơn vị tính
-    private List<SalesOrderMaterialDTO> materials = new ArrayList<>();
+//    private List<SalesOrderMaterialDTO> materials = new ArrayList<>();
 
 }

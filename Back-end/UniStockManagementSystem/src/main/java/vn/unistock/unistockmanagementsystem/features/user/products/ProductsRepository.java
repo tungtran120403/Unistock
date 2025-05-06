@@ -22,4 +22,17 @@ public interface ProductsRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE :search IS NULL OR p.productCode LIKE %:search% OR p.productName LIKE %:search%")
     List<Product> findByCodeOrName(@Param("search") String search);
 
+    @Query("""
+        SELECT p FROM Product p
+        WHERE (:search IS NULL OR
+               lower(p.productCode) LIKE lower(concat('%', :search, '%')) OR
+               lower(p.productName) LIKE lower(concat('%', :search, '%')))
+          AND (:statuses IS NULL OR p.isProductionActive IN :statuses)
+          AND (:typeIds IS NULL OR p.productType.typeId IN :typeIds)
+    """)
+    Page<Product> searchProducts(@Param("search") String search,
+                                 @Param("statuses") List<Boolean> statuses,
+                                 @Param("typeIds") List<Long> typeIds,
+                                 Pageable pageable);
+
 }

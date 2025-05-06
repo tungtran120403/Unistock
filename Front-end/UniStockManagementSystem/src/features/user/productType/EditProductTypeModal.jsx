@@ -22,7 +22,6 @@ const EditProductTypeModal = ({ productType, onClose, onSuccess }) => {
     useEffect(() => {
         if (productType) {
             const typeId = productType.typeId || productType.id;
-            console.log("Product Type ID:", typeId);
 
             setFormData({
                 typeName: productType.typeName,

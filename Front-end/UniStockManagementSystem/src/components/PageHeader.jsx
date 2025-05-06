@@ -27,7 +27,7 @@ const PageHeader = ({
                         className="flex items-center gap-2 bg-white border shadow-none hover:shadow-none rounded-[4px] text-[#089456] border-[#089456] hover:bg-[#089456]/10"
                         onClick={onImport}
                     >
-                        <BiImport className="h-5 w-5" /> Import Excel
+                        <BiImport className="h-5 w-5" /> Nhập
                     </Button>
                 )}
                 {showExport && (
@@ -38,7 +38,7 @@ const PageHeader = ({
                         className="flex items-center gap-2 bg-white border shadow-none hover:shadow-none rounded-[4px] text-[#089456] border-[#089456] hover:bg-[#089456]/10"
                         onClick={onExport}
                     >
-                        <BiExport className="h-5 w-5" /> Xuất File
+                        <BiExport className="h-5 w-5" /> Xuất
                     </Button>
                 )}
                 {showAdd && (

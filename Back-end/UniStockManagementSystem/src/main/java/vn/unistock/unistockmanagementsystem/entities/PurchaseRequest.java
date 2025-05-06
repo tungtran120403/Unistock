@@ -38,7 +38,8 @@ public class PurchaseRequest {
         PENDING("Chờ xác nhận"),
         CONFIRMED("Xác nhận"),
         CANCELLED("Hủy"),
-        FINISHED("Đã hoàn thành"),
+        REJECTED("Bị từ chối"),
+        //FINISHED("Đã hoàn thành"),
         PURCHASED("Đã tạo đơn mua");
         private final String label;
 

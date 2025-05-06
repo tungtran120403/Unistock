@@ -15,7 +15,7 @@ import { FaSave, FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
 import { checkProductCodeExists, createProduct, fetchProductTypes } from "./productService";
 import { checkMaterialCodeExists, getAllActiveMaterials } from "../materials/materialService";
 import { fetchActiveUnits } from "../unit/unitService";
-import Select from "react-select";
+import CircularProgress from '@mui/material/CircularProgress';
 import axios from "axios";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import ReactPaginate from "react-paginate";
@@ -23,35 +23,6 @@ import PageHeader from '@/components/PageHeader';
 import TableSearch from "@/components/TableSearch";
 import ImageUploadBox from '@/components/ImageUploadBox';
 import Table from "@/components/Table";
-
-const customStyles = {
-    control: (provided, state) => ({
-        ...provided,
-        minWidth: 200,
-        borderColor: state.isFocused ? "black" : provided.borderColor,
-        boxShadow: state.isFocused ? "0 0 0 1px black" : "none",
-        "&:hover": {
-            borderColor: "black",
-        },
-    }),
-    menuList: (provided) => ({
-        ...provided,
-        maxHeight: '300px', // Tăng chiều cao tối đa của dropdown
-    }),
-    option: (provided, state) => ({
-        ...provided,
-        backgroundColor: state.isFocused
-            ? "#f3f4f6"
-            : state.isSelected
-                ? "#e5e7eb"
-                : "transparent",
-        color: "#000",
-        cursor: "pointer",
-        "&:active": {
-            backgroundColor: "#e5e7eb",
-        },
-    }),
-};
 
 const authHeader = () => {
     const token = localStorage.getItem("token");
@@ -610,6 +581,26 @@ const AddProductPage = () => {
         quantity: item.quantity,
     }));
 
+const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
 
     return (
         <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>

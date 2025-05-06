@@ -28,7 +28,7 @@ public interface SaleOrdersDetailMapper {
     @Mapping(source = "remainingQuantity",    target = "remainingQuantity")
     @Mapping(source = "quantity",             target = "quantity")
     @Mapping(source = "receivedQuantity",     target = "receivedQuantity")
-    @Mapping(source = "materials",            target = "materials")
+//    @Mapping(source = "materials",            target = "materials")
     SalesOrderDetailDTO toDTO(SalesOrderDetail entity);
 
     default List<SalesOrderDetailDTO> toDTOList(List<SalesOrderDetail> list) {
@@ -42,7 +42,7 @@ public interface SaleOrdersDetailMapper {
     @Mapping(source = "quantity",        target = "quantity")
     @Mapping(target  = "receivedQuantity",
             expression = "java(dto.getReceivedQuantity() == null ? 0 : dto.getReceivedQuantity())")
-    @Mapping(source = "materials",       target = "materials")
+//    @Mapping(source = "materials",       target = "materials")
     @Mapping(source = "productCode",     target = "product.productCode")
     SalesOrderDetail toEntity(SalesOrderDetailDTO dto,
                               @Context MaterialsRepository materialRepository);    // ⬅ truyền repo

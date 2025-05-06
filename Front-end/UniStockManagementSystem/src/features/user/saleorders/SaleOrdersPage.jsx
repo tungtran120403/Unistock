@@ -10,13 +10,14 @@ import {
   IconButton,
 } from '@mui/material';
 import {
-  VisibilityOutlined
+  VisibilityOutlined, 
 } from '@mui/icons-material';
+import CircularProgress from '@mui/material/CircularProgress';
 import useSaleOrder from "./useSaleOrder";
 import ReactPaginate from "react-paginate";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
-import { useNavigate } from "react-router-dom";
+import { useNavigate} from "react-router-dom";
 import PageHeader from '@/components/PageHeader';
 import TableSearch from '@/components/TableSearch';
 import Table from "@/components/Table";
@@ -31,57 +32,82 @@ const SaleOrdersPage = () => {
     totalPages,
     totalElements,
     getNextCode,
+    loading,
   } = useSaleOrder();
-
+  const [currentUser, setCurrentUser] = useState(null);
   // State quản lý tìm kiếm, phân trang
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-
+  const location = useLocation();
+  const navigate = useNavigate();
   // State for filter and search
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [statusAnchorEl, setStatusAnchorEl] = useState(null);
   const [allStatuses, setAllStatuses] = useState([]);
+useEffect(() => {
+        // Lấy thông tin user từ localStorage
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            try {
+                setCurrentUser(JSON.parse(storedUser));
+            } catch (err) {
+                console.error("Lỗi parse JSON từ localStorage:", err);
+            }
+        }
 
+        if (location.state?.successMessage) {
+            console.log("Component mounted, location.state:", location.state?.successMessage);
+            setAlertMessage(location.state.successMessage);
+            setShowSuccessAlert(true);
+            // Xóa state để không hiển thị lại nếu người dùng refresh
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
+    useEffect(() => {
+        if (currentUser && !currentUser.permissions?.includes("getFilteredOrders")) {
+          navigate("/unauthorized");
+        }
+      }, [currentUser, navigate]);
   // List status for filter and display
   const saleOrderStatuses = [
     {
-        value: "PROCESSING",
-        label: "Chưa có yêu cầu",
-        className: "bg-gray-100 text-gray-800",
+      value: "PROCESSING",
+      label: "Chưa có yêu cầu",
+      className: "bg-gray-100 text-gray-800",
     },
-    
+
     {
-        value: "PROCESSING_PENDING_REQUEST",
-        label: "Đang chờ yêu cầu được duyệt",
-        className: "bg-blue-50 text-blue-800",
-    },
-    {
-        value: "PROCESSING_REJECTED_REQUEST",
-        label: "Yêu cầu bị từ chối",
-        className: "bg-pink-50 text-pink-800",
+      value: "PROCESSING_PENDING_REQUEST",
+      label: "Đang chờ yêu cầu được duyệt",
+      className: "bg-blue-50 text-blue-800",
     },
     {
-        value: "PREPARING_MATERIAL",
-        label: "Đang chuẩn bị",
-        className: "bg-yellow-100 text-amber-800",
+      value: "PROCESSING_REJECTED_REQUEST",
+      label: "Yêu cầu bị từ chối",
+      className: "bg-pink-50 text-pink-800",
     },
     {
-        value: "PARTIALLY_ISSUED",
-        label: "Đã xuất một phần",
-        className: "bg-indigo-50 text-indigo-800",
+      value: "PREPARING_MATERIAL",
+      label: "Đang chuẩn bị",
+      className: "bg-yellow-100 text-orange-800",
     },
     {
-        value: "COMPLETED",
-        label: "Đã hoàn thành",
-        className: "bg-green-50 text-green-800",
+      value: "PARTIALLY_ISSUED",
+      label: "Đã xuất một phần",
+      className: "bg-indigo-50 text-indigo-800",
     },
     {
-        value: "CANCELLED",
-        label: "Đã huỷ",
-        className: "bg-red-50 text-red-800",
+      value: "COMPLETED",
+      label: "Đã hoàn thành",
+      className: "bg-green-50 text-green-800",
+    },
+    {
+      value: "CANCELLED",
+      label: "Đã huỷ",
+      className: "bg-red-50 text-red-800",
     },
   ];
 
@@ -134,8 +160,6 @@ const SaleOrdersPage = () => {
     fetchPaginatedSaleOrders(currentPage, pageSize);
   }, [currentPage, pageSize]);
 
-  const navigate = useNavigate();
-  const location = useLocation();
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
 
@@ -147,6 +171,15 @@ const SaleOrdersPage = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAddOrder = async () => {
     const code = await getNextCode();
@@ -194,11 +227,11 @@ const SaleOrdersPage = () => {
       field: 'status',
       headerName: 'Trạng thái',
       flex: 1.5,
-      minWidth: 150,
+      minWidth: 210,
       editable: false,
       filterable: false,
       renderCell: (params) => {
-        const statusObj = saleOrderStatuses.find((s) => s.label === params.row.status) || 
+        const statusObj = saleOrderStatuses.find((s) => s.label === params.row.status) ||
           { className: "bg-gray-100 text-gray-800", label: params.row.status };
         return (
           <div
@@ -209,7 +242,7 @@ const SaleOrdersPage = () => {
           </div>
         );
       },
-    },    
+    },
     {
       field: 'orderDate',
       headerName: 'Ngày đặt hàng',
@@ -251,14 +284,28 @@ const SaleOrdersPage = () => {
     orderDate: order.orderDate,
   }));
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+    <div className="mb-8 flex flex-col gap-12">
       <Card className="bg-gray-50 p-7 rounded-none shadow-none">
         <CardBody className="pb-2 bg-white rounded-xl">
           <PageHeader
             title="Danh sách đơn đặt hàng bán"
             addButtonLabel="Thêm đơn hàng"
             onAdd={() => handleAddOrder(true)}
+            showAdd={currentUser && currentUser.permissions.includes("createSaleOrder")}
             onImport={() => {/* Xử lý import nếu có */ }}
             onExport={() => {/* Xử lý export file ở đây nếu có */ }}
             showImport={false}

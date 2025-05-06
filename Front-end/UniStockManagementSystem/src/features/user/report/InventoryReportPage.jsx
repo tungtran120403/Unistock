@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ReactPaginate from "react-paginate";
 import { Card, CardBody, Typography } from "@material-tailwind/react";
 import {
@@ -25,6 +25,7 @@ import { getInventoryReportPaginated } from "./reportService";
 import { getWarehouseList } from "../warehouse/warehouseService";
 import { fetchActiveProductTypes } from "../productType/productTypeService";
 import { fetchActiveMaterialTypes } from "../materialType/materialTypeService";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const InventoryReportPage = () => {
     const [currentPage, setCurrentPage] = useState(0);
@@ -47,6 +48,8 @@ const InventoryReportPage = () => {
     const [reportData, setReportData] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
     const [totalElements, setTotalElements] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [isFirstLoad, setIsFirstLoad] = useState(true);  // ✅ Thêm dòng này
 
     const [warehouseList, setWarehouses] = useState([]);
     const [productTypeList, setProductTypeList] = useState([]);
@@ -54,7 +57,39 @@ const InventoryReportPage = () => {
     const [materialTypeList, setMaterialTypeList] = useState([]);
     const [selectedMaterialTypes, setSelectedMaterialTypes] = useState([]);
 
-    const fetchReport = async (page, size, itemType) => {
+    const [currentUser, setCurrentUser] = useState(null);
+      const location = useLocation();
+    
+      useEffect(() => {
+                // Lấy thông tin user từ localStorage
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    try {
+                        setCurrentUser(JSON.parse(storedUser));
+                    } catch (err) {
+                        console.error("Lỗi parse JSON từ localStorage:", err);
+                    }
+                }
+        
+                if (location.state?.successMessage) {
+                    console.log("Component mounted, location.state:", location.state?.successMessage);
+                    setAlertMessage(location.state.successMessage);
+                    setShowSuccessAlert(true);
+                    // Xóa state để không hiển thị lại nếu người dùng refresh
+                    window.history.replaceState({}, document.title);
+                }
+            }, [location.state]);
+      useEffect(() => {
+              if (currentUser && !currentUser.permissions?.includes("getInventoryReport")) {
+                navigate("/unauthorized");
+              }
+            }, [currentUser, navigate]);
+
+    const fetchReport = async (page, size, itemType, isFirstLoad) => {
+        if (isFirstLoad) {
+            setLoading(true);
+        }
+
         try {
             const response = await getInventoryReportPaginated({
                 page,
@@ -87,6 +122,10 @@ const InventoryReportPage = () => {
             setReportData([]);
             setTotalPages(1);
             setTotalElements(0);
+        } finally {
+            if (isFirstLoad) {
+                setLoading(false);
+            }
         }
     };
     useEffect(() => {
@@ -96,7 +135,12 @@ const InventoryReportPage = () => {
                 ? "MATERIAL"
                 : "";
 
-        fetchReport(currentPage, pageSize, inferredItemType);
+        fetchReport(currentPage, pageSize, inferredItemType, isFirstLoad);
+
+        if (isFirstLoad) {
+            setIsFirstLoad(false);  // ✅ Sau lần đầu, tắt flag này
+        }
+
     }, [
         currentPage,
         pageSize,
@@ -105,7 +149,8 @@ const InventoryReportPage = () => {
         selectedStatuses,
         quantityFilters,
         selectedProductTypes,
-        selectedMaterialTypes
+        selectedMaterialTypes,
+        isFirstLoad,
     ]);
 
     // Handle page change
@@ -392,8 +437,29 @@ const InventoryReportPage = () => {
 
     const data = reportData;
 
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+        <div className="mb-8 flex flex-col gap-12">
             <Card className="bg-gray-50 p-7 rounded-none shadow-none">
                 <CardBody className="pb-2 bg-white rounded-xl">
                     <PageHeader

@@ -17,9 +17,11 @@ import PageHeader from '@/components/PageHeader';
 import Table from "@/components/Table";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SuccessAlert from "@/components/SuccessAlert";
+import CircularProgress from '@mui/material/CircularProgress';
+import { useNavigate, useLocation } from "react-router-dom";
 
 const PartnerTypePage = () => {
-    const { partnerTypes, fetchPartnerTypes, toggleStatus, totalPages, totalElements } = usePartnerType();
+    const { partnerTypes, fetchPartnerTypes, toggleStatus, totalPages, totalElements, loading } = usePartnerType();
     const [showCreatePopup, setShowCreatePopup] = useState(false);
     const [showEditPopup, setShowEditPopup] = useState(false);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -29,6 +31,35 @@ const PartnerTypePage = () => {
     const [editPartnerType, setEditPartnerType] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+
+    const navigate = useNavigate();
+    const [currentUser, setCurrentUser] = useState(null);
+      const location = useLocation();
+    
+      useEffect(() => {
+                // Lấy thông tin user từ localStorage
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    try {
+                        setCurrentUser(JSON.parse(storedUser));
+                    } catch (err) {
+                        console.error("Lỗi parse JSON từ localStorage:", err);
+                    }
+                }
+        
+                if (location.state?.successMessage) {
+                    console.log("Component mounted, location.state:", location.state?.successMessage);
+                    setAlertMessage(location.state.successMessage);
+                    setShowSuccessAlert(true);
+                    // Xóa state để không hiển thị lại nếu người dùng refresh
+                    window.history.replaceState({}, document.title);
+                }
+            }, [location.state]);
+      useEffect(() => {
+              if (currentUser && !currentUser.permissions?.includes("getAllPartnerTypes")) {
+                navigate("/unauthorized");
+              }
+            }, [currentUser, navigate]);
 
     useEffect(() => {
         fetchPartnerTypes(currentPage, pageSize).then((data) => {
@@ -114,8 +145,29 @@ const PartnerTypePage = () => {
         status: type.status,
     }));
 
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+        <div className="mb-8 flex flex-col gap-12">
             <Card className="bg-gray-50 p-7 rounded-none shadow-none">
 
                 <CardBody className="pb-4 bg-white rounded-xl">

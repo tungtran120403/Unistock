@@ -20,6 +20,7 @@ import TableSearch from '@/components/TableSearch';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import Table from "@/components/Table";
 import SuccessAlert from "@/components/SuccessAlert";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const authHeader = () => {
     const token = localStorage.getItem("token");
@@ -50,6 +51,7 @@ const DetailProductPage = () => {
 
     useEffect(() => {
         const fetchData = async () => {
+            setLoading(true);
             try {
                 const productData = await getProductById(id);
                 const activeProductTypes = await fetchProductTypes();
@@ -115,6 +117,8 @@ const DetailProductPage = () => {
                 await fetchProductMaterials(id);
             } catch (error) {
                 console.error("❌ Error fetching data:", error);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -163,7 +167,7 @@ const DetailProductPage = () => {
                 ...prev,
                 materials: [],
             }));
-            alert("Không thể tải định mức nguyên vật liệu. Vui lòng thử lại!");
+            console.log("Không thể tải định mức nguyên vật liệu. Vui lòng thử lại!");
         }
     };
 
@@ -280,7 +284,7 @@ const DetailProductPage = () => {
                 setPreviewImage(null);
             } catch (error) {
                 console.error("❌ Lỗi lưu sản phẩm:", error);
-                alert("Lỗi khi cập nhật sản phẩm: " + (error.response?.data?.message || error.message));
+                console.log("Lỗi khi cập nhật sản phẩm: " + (error.response?.data?.message || error.message));
             } finally {
                 setLoading(false);
             }
@@ -570,7 +574,26 @@ const DetailProductPage = () => {
         },
     ];
 
-    if (!product) return <div>Loading...</div>;
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>

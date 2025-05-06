@@ -6,7 +6,6 @@ import {
     Typography,
     Tooltip,
 } from "@material-tailwind/react";
-import { BiCartAdd, BiSolidEdit } from "react-icons/bi";
 import {
     IconButton,
 } from '@mui/material';
@@ -14,6 +13,7 @@ import {
     VisibilityOutlined,
     AddShoppingCartRounded
 } from '@mui/icons-material';
+import CircularProgress from '@mui/material/CircularProgress';
 import ReactPaginate from "react-paginate";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
@@ -28,12 +28,14 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { getPurchaseRequestById, updatePurchaseRequestStatus } from "./PurchaseRequestService";
 import DateFilterButton from "@/components/DateFilterButton";
 import StatusFilterButton from "@/components/StatusFilterButton";
+import UnauthorizedPage from "../../../components/UnauthorizedPage";
 
 const PurchaseRequestPage = () => {
     const {
         purchaseRequests,
         totalPages,
         totalElements,
+        loading,
         fetchPurchaseRequests,
         getNextCode,
     } = usePurchaseRequest();
@@ -78,15 +80,30 @@ const PurchaseRequestPage = () => {
             window.history.replaceState({}, document.title);
         }
     }, [location.state]);
+    useEffect(() => {
+        if (currentUser && !currentUser.permissions?.includes("getAllPurchaseRequests")) {
+          navigate("/unauthorized");
+        }
+      }, [currentUser, navigate]);
 
     useEffect(() => {
-        fetchPurchaseRequests(currentPage, pageSize, searchTerm);
-    }, [currentPage, pageSize, searchTerm]);
+        fetchPurchaseRequests(
+            currentPage,
+            pageSize,
+            searchTerm,
+            selectedStatuses.map(status => status.value),
+            startDate,
+            endDate
+        );
+    }, [currentPage, pageSize, searchTerm, selectedStatuses, startDate, endDate]);
 
     useEffect(() => {
         setAllStatuses(purchaseRequestStatus);
     }, []);
 
+    // if (!currentUser?.permissions?.includes("getAllPurchaseRequests")) {
+    //     return <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 text-center">Heloo</div>;
+    // }
     //list status for filter 
     const purchaseRequestStatus = [
         {
@@ -97,43 +114,53 @@ const PurchaseRequestPage = () => {
         {
             value: "CONFIRMED",
             label: "Đã duyệt",
-            className: "bg-green-50 text-green-800",
+            className: "bg-teal-50 text-teal-800",
         },
         {
             value: "CANCELLED",
-            label: "Đã hủy",
-            className: "bg-gray-100 text-gray-800",
-        },
-        {
-            value: "REJECTED",
-            label: "Bị từ chối",
+            label: "Bị huỷ",
             className: "bg-red-50 text-red-800",
         },
         {
             value: "PURCHASED",
             label: "Đã tạo đơn mua",
-            className: "bg-indigo-50 text-indigo-800",
+            className: "bg-yellow-100 text-orange-800",
+        },
+        {
+            value: "REJECTED",
+            label: "Từ chối",
+            className: "bg-pink-50 text-pink-800",
         },
     ];
 
     const statusMapping = {
         PENDING: "bg-blue-50 text-blue-800",
         CONFIRMED: "bg-green-50 text-green-800",
-        CANCELLED: "bg-gray-100 text-gray-800",
-        REJECTED: "bg-red-50 text-red-800",
+        CANCELLED: "bg-red-50 text-red-800",
         PURCHASED: "bg-indigo-50 text-indigo-800",
+        FINISHED: "bg-green-50 text-green-800",
     };
 
-    const filteredRequests = purchaseRequests.filter((request) => {
-        const matchesStatus =
-            selectedStatuses.length === 0 ||
-            selectedStatuses.includes(request.status);
+    const getStatusClass = (statusCode) => {
+        const found = purchaseRequestStatus.find(s => s.value === statusCode);
+        return found ? found.className : 'bg-yellow-100 text-amber-800';
+    };
 
-        const matchesSearch =
-            request.purchaseRequestCode?.toLowerCase().includes(searchTerm.toLowerCase());
+    const mapLabelToStatusCode = (label) => {
+        const found = purchaseRequestStatus.find(s => s.label === label);
+        return found ? found.value : label;
+    };
 
-        return matchesStatus && matchesSearch;
-    });
+    // const filteredRequests = purchaseRequests.filter((request) => {
+    //     const matchesStatus =
+    //         selectedStatuses.length === 0 ||
+    //         selectedStatuses.includes(request.status);
+
+    //     const matchesSearch =
+    //         request.purchaseRequestCode?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    //     return matchesStatus && matchesSearch;
+    // });
 
     const getStatusLabel = (statusCode) => {
         const found = purchaseRequestStatus.find(s => s.value === statusCode);
@@ -150,12 +177,12 @@ const PurchaseRequestPage = () => {
             navigate("/user/purchase-request/add", { state: { nextCode: code } });
         } catch (error) {
             console.error("Lỗi khi lấy mã tiếp theo:", error);
-            alert("Có lỗi xảy ra khi tạo mã yêu cầu mới");
+            console.log("Có lỗi xảy ra khi tạo mã yêu cầu mới");
         }
     };
 
     const handleSearch = () => {
-        fetchPurchaseRequests(0, pageSize, searchTerm);
+        fetchPurchaseRequests(0, pageSize, searchTerm, selectedStatuses.map(mapLabelToStatusCode), startDate, endDate);
         setCurrentPage(0);
     };
 
@@ -193,7 +220,7 @@ const PurchaseRequestPage = () => {
             navigate("/user/purchaseOrder", { state: { successMessage: `Tạo ${response.orders.length} đơn hàng mua vật tư thành công!` } });
         } catch (error) {
             console.error("Lỗi tạo đơn hàng:", error);
-            alert("Không thể tạo đơn mua hàng. Vui lòng thử lại.");
+            console.log("Không thể tạo đơn mua hàng. Vui lòng thử lại.");
             setShowConfirmDialog({
                 open: false,
                 message: "",
@@ -223,9 +250,9 @@ const PurchaseRequestPage = () => {
             filterable: false,
             renderCell: (params) => (
                 <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                    ${statusMapping[params.value] || 'bg-yellow-100 text-amber-800'}`}
+                    ${getStatusClass(params.row.statusCode)}`}
                 >
-                    {params.row?.statusLabel || params.value}
+                    {params.row.status}
                 </div>
             )
         },
@@ -237,7 +264,7 @@ const PurchaseRequestPage = () => {
             editable: false,
             filterable: false,
             renderCell: (params) => {
-                if (params.row.status !== 'Từ chối') return '';
+                if (params.row.status !== 'CANCELLED') return '';
                 if (!params.value) return 'Không có';
                 return params.value.startsWith('Khác') ? 'Khác' : params.value;
             },
@@ -279,14 +306,37 @@ const PurchaseRequestPage = () => {
     ];
 
     const data = purchaseRequests.map((request, index) => ({
-        id: request.id,
+        id: request.purchaseRequestId,
         index: (currentPage * pageSize) + index + 1,
         purchaseRequestCode: request.purchaseRequestCode,
-        purchaseOrderCode: request.saleOrderCode || "Chưa có",
+        purchaseOrderCode: request.saleOrderCode || "-",
         createdDate: request.createdDate,
         status: getStatusLabel(request.status),
+        statusCode: request.status,
         rejectionReason: request.rejectionReason,
     }));
+
+    const [dotCount, setDotCount] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="mb-8 flex flex-col gap-12">
@@ -296,6 +346,7 @@ const PurchaseRequestPage = () => {
                         title="Danh sách yêu cầu mua vật tư"
                         onAdd={handleAddRequest}
                         addButtonLabel="Thêm yêu cầu"
+                        showAdd={currentUser && currentUser.permissions.includes("createManualPurchaseRequest")}
                         showImport={false}
                         showExport={false}
                     />

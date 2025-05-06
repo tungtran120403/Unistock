@@ -7,14 +7,21 @@ const authHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-export const getAllProducts = async (page = 0, size = 10) => {
+export const getAllProducts = async ({ page = 0, size = 10, search, statuses, typeIds } = {}) => {
   try {
-    const response = await axios.get(`${API_URL}/products`, {
+    const params = new URLSearchParams();
+    params.append("page", page);
+    params.append("size", size);
+    if (search) params.append("search", search);
+    if (Array.isArray(statuses)) {
+      statuses.forEach(s => params.append("statuses", s));
+    }
+    if (Array.isArray(typeIds)) {
+      typeIds.forEach(t => params.append("typeIds", t));
+    }
+
+    const response = await axios.get(`${API_URL}/products?${params.toString()}`, {
       headers: authHeader(),
-      params: {
-        page: page,
-        size: size,
-      },
     });
 
     console.log("📌 [getAllProducts] API Response:", response.data);
@@ -38,6 +45,7 @@ export const getAllProducts = async (page = 0, size = 10) => {
     throw error;
   }
 };
+
 
 export const getProductById = async (productId) => {
   try {

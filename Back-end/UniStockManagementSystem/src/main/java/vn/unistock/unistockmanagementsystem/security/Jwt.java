@@ -16,7 +16,7 @@ public class Jwt {
     @Value("${jwt.secret}")
     private String JWT_SECRET_KEY;
 
-    private static final long JWT_EXPIRATION_TIME = 13600000; // 1 giờ (3600000 ms)
+    private static final long JWT_EXPIRATION_TIME = 36000000; // 10 giờ (36000000 ms)
 
     /**
      * Tạo JWT token, với subject = email, và lưu userId, roles vào claim.

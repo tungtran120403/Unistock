@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import ReactPaginate from "react-paginate";
-import { Card, CardHeader, CardBody, Typography, Tooltip } from "@material-tailwind/react";
-import { FaPlus, FaEye, FaAngleDown } from "react-icons/fa";
+import { Card, CardBody, Typography, Tooltip } from "@material-tailwind/react";
+import { FaAngleDown } from "react-icons/fa";
 import { ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 import {
@@ -13,7 +13,7 @@ import {
   Checkbox,
   ListItemText,
 } from "@mui/material";
-
+import CircularProgress from '@mui/material/CircularProgress';
 import {
   VisibilityOutlined,
 } from '@mui/icons-material';
@@ -34,6 +34,7 @@ dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
 
 const ReceiptNotePage = () => {
+  const [currentUser, setCurrentUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,11 +67,35 @@ const ReceiptNotePage = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+  useEffect(() => {
+          // Lấy thông tin user từ localStorage
+          const storedUser = localStorage.getItem("user");
+          if (storedUser) {
+              try {
+                  setCurrentUser(JSON.parse(storedUser));
+              } catch (err) {
+                  console.error("Lỗi parse JSON từ localStorage:", err);
+              }
+          }
   
+          if (location.state?.successMessage) {
+              console.log("Component mounted, location.state:", location.state?.successMessage);
+              setAlertMessage(location.state.successMessage);
+              setShowSuccessAlert(true);
+              // Xóa state để không hiển thị lại nếu người dùng refresh
+              window.history.replaceState({}, document.title);
+          }
+      }, [location.state]);
+useEffect(() => {
+        if (currentUser && !currentUser.permissions?.includes("getAllGoodReceipts")) {
+          navigate("/unauthorized");
+        }
+      }, [currentUser, navigate]);
   const {
     receiptNotes,
     totalPages,
     totalElements,
+    loading,
     fetchPaginatedReceiptNotes
   } = useReceiptNote();
 
@@ -85,8 +110,29 @@ const ReceiptNotePage = () => {
 
   // Fetch data on component mount and when page or size changes
   useEffect(() => {
-    fetchPaginatedReceiptNotes(currentPage, pageSize, searchTerm, selectedCategories, startDate, endDate);
-  }, [currentPage, pageSize, searchTerm, selectedCategories, startDate, endDate]);
+    fetchPaginatedReceiptNotes(
+      currentPage,
+      pageSize,
+      searchTerm,
+      selectedCategories,
+      startDate,
+      endDate,
+      true  // luôn bật loading khi đổi page
+    );
+  }, [currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(0);  // reset về trang đầu khi filter thay đổi
+    fetchPaginatedReceiptNotes(
+      0,
+      pageSize,
+      searchTerm,
+      selectedCategories,
+      startDate,
+      endDate,
+      false  // không bật loading khi filter
+    );
+  }, [searchTerm, selectedCategories, startDate, endDate]);
 
   // Fetch thông tin user và đơn hàng
 
@@ -109,7 +155,7 @@ const ReceiptNotePage = () => {
   // Handle search
   const handleSearch = () => {
     setCurrentPage(0);
-    fetchPaginatedReceiptNotes(0, pageSize, searchTerm, selectedCategories, startDate, endDate);
+    fetchPaginatedReceiptNotes(0, pageSize, searchTerm, selectedCategories, startDate, endDate, false);
   };
 
   const columnsConfig = [
@@ -215,9 +261,32 @@ const ReceiptNotePage = () => {
     poCode: receipt.poCode,
     ginCode: receipt.ginCode,
   }));
+  console.log("Table data:", data);
+
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+    <div className="mb-8 flex flex-col gap-12">
       <Card className="bg-gray-50 p-7 rounded-none shadow-none">
         <CardBody className="pb-2 bg-white rounded-xl">
           <PageHeader
@@ -398,7 +467,7 @@ const ReceiptNotePage = () => {
                         onClick={() => {
                           setSelectedCategories([]);
                           setCurrentPage(0);
-                          fetchPaginatedReceiptNotes(0, pageSize, searchTerm, [], startDate, endDate);
+                          fetchPaginatedReceiptNotes(0, pageSize, searchTerm, [], startDate, endDate, false);
                         }}
                         sx={{
                           color: "#000000DE",

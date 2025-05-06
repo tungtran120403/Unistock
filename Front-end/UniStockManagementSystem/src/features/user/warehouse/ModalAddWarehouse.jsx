@@ -30,7 +30,7 @@ const ModalAddWarehouse = ({ show, onClose, onAdd }) => {
     { value: "VT", label: "Vật tư mua bán" },
     { value: "GC", label: "Hàng hóa gia công" },
     { value: "TL", label: "Hàng hóa trả lại" },
-    { value: "NT", label: "Vật tư thừa sau sản xuất" }
+    { value: "NT", label: "Vật tư thừa sau sản xuất" },
   ];
 
   const statusOptions = [

@@ -1,10 +1,16 @@
 package vn.unistock.unistockmanagementsystem.features.admin.user;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,6 +36,7 @@ public class UserService {
     private final LoginService loginService;
     private final UserMapper userMapper = UserMapper.INSTANCE;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final UserDetailsService userDetailsService;
 
     public UserDTO createUser(UserDTO userDTO) {
         // 1) Kiểm tra email đã tồn tại chưa
@@ -91,7 +98,16 @@ public class UserService {
         return responseDTO;
     }
 
-
+    private void refreshAuthentication(String email) {
+        Authentication currentAuth = SecurityContextHolder.getContext().getAuthentication();
+        if (currentAuth != null && currentAuth.getName().equals(email)) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            Authentication newAuth = new UsernamePasswordAuthenticationToken(
+                    userDetails, currentAuth.getCredentials(), userDetails.getAuthorities());
+            SecurityContextHolder.getContext().setAuthentication(newAuth);
+        }
+    }
+    @CacheEvict(value = "users", allEntries = true)
     public UserDTO updateUser(Long userId, UserDTO updatedUserDTO) {
         // 1️⃣ Kiểm tra User có tồn tại không
         User user = userRepository.findById(userId)
@@ -136,7 +152,8 @@ public class UserService {
 
         // 6️⃣ Lưu user sau khi cập nhật
         user = userRepository.save(user);
-
+        loginService.evictUserCache(user.getEmail());
+        refreshAuthentication(user.getEmail());
         // 7️⃣ Trả về DTO (ẩn mật khẩu)
         UserDTO responseDTO = userMapper.toDTO(user);
         responseDTO.setPassword(null);
@@ -149,7 +166,7 @@ public class UserService {
         Page<User> userPage = userRepository.findAll(pageable);
         return userPage.map(userMapper::toDTO);
     }
-
+    @CacheEvict(value = "users", allEntries = true)
     public UserDTO updateUserStatus(Long id, Boolean isActive) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));

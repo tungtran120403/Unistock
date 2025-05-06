@@ -5,7 +5,6 @@ import {
 } from "@heroicons/react/24/solid";
 
 import {
-  Dashboard,
   LockPerson,
   AccountCircle,
   Home,
@@ -27,7 +26,6 @@ import RolePage from "@/features/admin/roles/RolePage";
 import UnauthorizedPage from "@/components/UnauthorizedPage";
 import ProfilePage from "@/features/profile/ProfilePage";
 import NotFoundPage from "@/components/NotFoundPage";
-import AdminDashboard from "@/features/admin/dashboard/AdminDashboard";
 import WarehousePage from "@/features/user/warehouse/WarehousePage";
 import ProductPage from "@/features/user/products/ProductPage";
 import SaleOrdersPage from "../features/user/saleorders/SaleOrdersPage";
@@ -37,7 +35,6 @@ import MaterialPage from "@/features/user/materials/MaterialPage";
 import MaterialTypePage from "@/features/user/materialType/MaterialTypePage";
 import ReceiptNotePage from "../features/user/receiptNote/ReceiptNotePage";
 import AddSaleOrderPage from "../features/user/saleorders/AddSaleOrderPage";
-import AddReceiptNote from "../features/user/receiptNote/AddReceiptNote";
 import IssueNotePage from "../features/user/issueNote/IssueNotePage";
 import AddIssueNote from "../features/user/issueNote/AddIssueNote";
 import PurchaseOrderPage from "../features/user/purchaseOrder/PurchaseOrderPage";
@@ -52,20 +49,18 @@ import DetailMaterialPage from "@/features/user/materials/DetailMaterialPage";
 import ViewReceiptNote from "../features/user/receiptNote/ViewReceiptNote";
 import EditSaleOrderPage from "../features/user/saleorders/EditSaleOrderPage";
 import DetailPurchaseRequestPage from "../features/user/purchaseRequest/DetailPurchaseRequestPage";
-import AddReceiptNoteManually from "../features/user/receiptNote/AddReceiptNoteManually";
 import ForgotPassword from "../features/auth/reset_password/ConfirmEmailPage";
 import ResetPassword from "../features/auth/reset_password/ResetPasswordPage";
 import LoginPage from "../features/auth/login/LoginPage";
 import ConfirmOTPPage from "../features/auth/reset_password/ConfirmOTPPage";
 import AddReceiptNoteGeneral from "../features/user/receiptNote/AddReceiptNoteGeneral";
 import InventoryReportPage from "../features/user/report/InventoryReportPage";
-import SaleOrderReportPage from "../features/user/report/SaleOrderReportPage";
 import GoodReceiptReportPage from "../features/user/report/GoodReceiptReportPage";
 import GoodIssueReportPage from "../features/user/report/GoodIssueReportPage";
 import StockMovementReportPage from "../features/user/report/StockMovementReportPage";
-import PartnerReportPage from "../features/user/report/PartnerReportPage";
 import ViewIssueNote from "../features/user/issueNote/ViewIssueNote";
 import UnitPage from "../features/user/unit/UnitPage";
+import HomePage from "../features/home/HomePage";
 
 const icon = { className: "w-5 h-5 text-inherit" };
 
@@ -84,13 +79,6 @@ export const routes = [
     title: "",
     layout: "admin",
     pages: [
-      {
-        icon: <Dashboard {...icon} />,
-        name: "Bảng Điều Khiển",
-        path: "/admin/dashboard",
-        element: <AdminDashboard />,
-        roles: ["ADMIN"],
-      },
       {
         icon: <AccountCircle {...icon} />,
         name: "Người Dùng",
@@ -115,7 +103,7 @@ export const routes = [
         icon: <Home {...icon} />,
         name: "Trang chủ",
         path: "/user/home",
-        element: <WarehousePage />,
+        element: <HomePage />,
         roles: ["USER"],
       },
       {
@@ -367,7 +355,7 @@ export const routes = [
         layout: "Nhập kho",
         name: "Thêm phiếu nhập",
         path: "/user/receiptNote/add",
-        element: <AddReceiptNote />,
+        element: <AddReceiptNoteGeneral />,
         roles: ["USER"],
       },
       {
@@ -437,7 +425,7 @@ export const routes = [
         layout: "Nhập kho",
         name: "Thêm phiếu nhập kho",
         path: "/user/receiptNote/manual",
-        element: <AddReceiptNoteManually />,
+        element: <AddReceiptNoteGeneral />,
         roles: ["USER"],
       },
       {

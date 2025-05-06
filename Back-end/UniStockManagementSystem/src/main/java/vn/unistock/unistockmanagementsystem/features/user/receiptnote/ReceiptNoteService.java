@@ -18,6 +18,7 @@ import vn.unistock.unistockmanagementsystem.features.user.inventory.InventoryRep
 import vn.unistock.unistockmanagementsystem.features.user.inventory.InventoryTransactionRepository;
 import vn.unistock.unistockmanagementsystem.features.user.issueNote.ReceiveOutsourceRepository;
 import vn.unistock.unistockmanagementsystem.features.user.materials.MaterialsRepository;
+import vn.unistock.unistockmanagementsystem.features.user.notification.NotificationService;
 import vn.unistock.unistockmanagementsystem.features.user.products.ProductsRepository;
 import vn.unistock.unistockmanagementsystem.features.user.purchaseOrder.PurchaseOrderDTO;
 import vn.unistock.unistockmanagementsystem.features.user.purchaseOrder.PurchaseOrderDetailRepository;
@@ -59,6 +60,8 @@ public class ReceiptNoteService {
     private ReceiveOutsourceRepository receiveOutsourceRepository;
     @Autowired
     private SaleOrdersService saleOrdersService;
+    @Autowired
+    private NotificationService notificationService;
 
     public Page<ReceiptNoteDTO> getAllReceiptNote(int page, int size, String search, List<String> categories, String startDate, String endDate) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "grnId"));
@@ -201,6 +204,8 @@ public class ReceiptNoteService {
                     detail.setMaterial(material);
                     if (detail.getUnit() == null) detail.setUnit(material.getUnit());
                     updateInventoryAndTransaction(warehouse, material, null, detailDto.getQuantity(), hasSaleOrder, saleOrderCompleted, linkedSaleOrder, grn);
+
+                    notificationService.clearLowStockNotificationIfRecovered(material.getMaterialId());
 
                     // Xử lý Vật tư mua bán
                     if ("Vật tư mua bán".equals(grnDto.getCategory()) && linkedPurchaseOrder != null) {
@@ -414,39 +419,19 @@ public class ReceiptNoteService {
             Double maxQuantity
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        List<ReceiptNoteDetailViewDTO> all = detailRepository.getReceiptImportReportRaw();
+        LocalDateTime start = (startDateStr != null && !startDateStr.isBlank()) ? LocalDateTime.parse(startDateStr + "T00:00:00") : null;
+        LocalDateTime end = (endDateStr != null && !endDateStr.isBlank()) ? LocalDateTime.parse(endDateStr + "T23:59:59") : null;
 
-        return new PageImpl<>(
-                all.stream()
-                        .filter(dto -> search == null || search.isBlank()
-                                || (dto.getProductCode() != null && dto.getProductCode().toLowerCase().contains(search.toLowerCase()))
-                                || (dto.getProductName() != null && dto.getProductName().toLowerCase().contains(search.toLowerCase()))
-                                || (dto.getMaterialCode() != null && dto.getMaterialCode().toLowerCase().contains(search.toLowerCase()))
-                                || (dto.getMaterialName() != null && dto.getMaterialName().toLowerCase().contains(search.toLowerCase()))
-                                || (dto.getGrnCode() != null && dto.getGrnCode().toLowerCase().contains(search.toLowerCase()))
-                        )
-                        .filter(dto -> itemType == null || itemType.isBlank()
-                                || itemType.equalsIgnoreCase(dto.getItemType())
-                        )
-                        .filter(dto -> !"UNKNOWN".equals(dto.getItemType()))
-                        .filter(dto -> warehouseIds == null || warehouseIds.isEmpty() || warehouseIds.contains(dto.getWarehouseId()))
-                        .filter(dto -> categories == null || categories.isEmpty() || categories.contains(dto.getCategory()))
-                        .filter(dto -> {
-                            if (dto.getReceiptDate() == null) return false;
-                            if (startDateStr != null && !startDateStr.isBlank()) {
-                                LocalDateTime start = LocalDateTime.parse(startDateStr + "T00:00:00");
-                                if (dto.getReceiptDate().isBefore(start)) return false;
-                            }
-                            if (endDateStr != null && !endDateStr.isBlank()) {
-                                LocalDateTime end = LocalDateTime.parse(endDateStr + "T23:59:59");
-                                if (dto.getReceiptDate().isAfter(end)) return false;
-                            }
-                            return true;
-                        })
-                        .filter(dto -> minQuantity == null || dto.getQuantity() >= minQuantity)
-                        .filter(dto -> maxQuantity == null || dto.getQuantity() <= maxQuantity)
-                        .toList()
-                , pageable, all.size());
+        return detailRepository.getFilteredImportReport(
+                search,
+                start,
+                end,
+                itemType,
+                minQuantity,
+                maxQuantity,
+                categories,
+                warehouseIds,
+                pageable
+        );
     }
-
 }

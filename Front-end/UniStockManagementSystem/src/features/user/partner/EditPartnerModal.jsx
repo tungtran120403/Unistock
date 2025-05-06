@@ -164,7 +164,7 @@ const EditPartnerModal = ({ partner, onClose, onSuccess }) => {
             onClose(); // Đóng modal
         } catch (error) {
             console.error("Lỗi khi cập nhật đối tác:", error);
-            alert("Có lỗi xảy ra! Vui lòng thử lại.");
+            console.log("Có lỗi xảy ra! Vui lòng thử lại.");
         }
     };
 

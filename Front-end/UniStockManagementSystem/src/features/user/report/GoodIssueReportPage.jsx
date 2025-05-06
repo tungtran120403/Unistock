@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ReactPaginate from "react-paginate";
 import { Card, CardBody, Typography } from "@material-tailwind/react";
 import {
@@ -24,6 +24,7 @@ import robotoFont from '@/assets/fonts/Roboto-Regular-normal.js';
 import robotoBoldFont from '@/assets/fonts/Roboto-Regular-bold.js';
 import { getGoodIssueReportPaginated } from "./reportService";
 import { getWarehouseList } from "../warehouse/warehouseService";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const GoodIssueReportPage = () => {
     const [currentPage, setCurrentPage] = useState(0);
@@ -43,12 +44,45 @@ const GoodIssueReportPage = () => {
     const [reportData, setReportData] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
     const [totalElements, setTotalElements] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [isFirstLoad, setIsFirstLoad] = useState(true);  // ✅ Thêm dòng này
 
     const [warehouseList, setWarehouses] = useState([]);
     const [itemTypeAnchorEl, setItemTypeAnchorEl] = useState(null);
     const [selectedItemType, setSelectedItemType] = useState(""); // "", "PRODUCT", "MATERIAL"
 
-    const fetchReport = async (page = currentPage, size = pageSize) => {
+    const [currentUser, setCurrentUser] = useState(null);
+          const location = useLocation();
+        
+          useEffect(() => {
+                    // Lấy thông tin user từ localStorage
+                    const storedUser = localStorage.getItem("user");
+                    if (storedUser) {
+                        try {
+                            setCurrentUser(JSON.parse(storedUser));
+                        } catch (err) {
+                            console.error("Lỗi parse JSON từ localStorage:", err);
+                        }
+                    }
+            
+                    if (location.state?.successMessage) {
+                        console.log("Component mounted, location.state:", location.state?.successMessage);
+                        setAlertMessage(location.state.successMessage);
+                        setShowSuccessAlert(true);
+                        // Xóa state để không hiển thị lại nếu người dùng refresh
+                        window.history.replaceState({}, document.title);
+                    }
+                }, [location.state]);
+          useEffect(() => {
+                  if (currentUser && !currentUser.permissions?.includes("getInventoryReport")) {
+                    navigate("/unauthorized");
+                  }
+                }, [currentUser, navigate]);
+    const fetchReport = async (page = currentPage, size = pageSize, isFirstLoad) => {
+        if (isFirstLoad) {
+            setLoading(true);
+        }
+
         try {
             const response = await getGoodIssueReportPaginated({
                 page,
@@ -82,12 +116,20 @@ const GoodIssueReportPage = () => {
         } catch (error) {
             console.error("❌ Lỗi khi lấy dữ liệu báo cáo xuất kho:", error);
             setReportData([]);
+        } finally {
+            if (isFirstLoad) {
+                setLoading(false);
+            }
         }
     };
 
 
     useEffect(() => {
-        fetchReport();
+        fetchReport(currentPage, pageSize, isFirstLoad);
+
+        if (isFirstLoad) {
+            setIsFirstLoad(false);  // ✅ Sau lần đầu, tắt flag này
+        }
     }, [
         currentPage,
         pageSize,
@@ -98,6 +140,7 @@ const GoodIssueReportPage = () => {
         selectedWarehouses,
         quantityFilters,
         selectedItemType,
+        isFirstLoad
     ]);
 
     // Handle page change
@@ -315,11 +358,29 @@ const GoodIssueReportPage = () => {
     const pageCount = totalPages;
     const paginatedData = reportData;
 
-    // const pageCount = Math.ceil(filteredData.length / pageSize);
-    // const paginatedData = filteredData.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+        <div className="mb-8 flex flex-col gap-12">
             <Card className="bg-gray-50 p-7 rounded-none shadow-none">
                 <CardBody className="pb-2 bg-white rounded-xl">
                     <PageHeader

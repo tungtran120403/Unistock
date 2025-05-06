@@ -17,7 +17,8 @@ import ReactPaginate from "react-paginate";
 import { FaPlus, FaTrash, FaArrowLeft, FaSearch } from "react-icons/fa";
 import {
   HighlightOffRounded,
-  Search
+  Search,
+  ClearRounded
 } from '@mui/icons-material';
 import {
   ArrowLeftIcon,
@@ -29,7 +30,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/vi"; // Sử dụng ngôn ngữ Tiếng Việt cho DatePicker
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-
+import CircularProgress from '@mui/material/CircularProgress';
 import PageHeader from '@/components/PageHeader';
 import FileUploadBox from '@/components/FileUploadBox';
 import TableSearch from '@/components/TableSearch';
@@ -61,6 +62,7 @@ const AddReceiptNoteGeneral = () => {
   const [description, setDescription] = useState("");          // Lý do xuất/ diễn giải
   const [referenceDocument, setReferenceDocument] = useState("");  // Chứng từ tham chiếu
   const isReferenceFlow = (category === "Vật tư mua bán" || category === "Hàng hóa gia công") && !!referenceDocument;
+  const [loading, setLoading] = useState(false);
 
   // Thông tin đối tác
   const [partnerId, setPartnerId] = useState(null);
@@ -81,6 +83,12 @@ const AddReceiptNoteGeneral = () => {
   const [customers, setCustomers] = useState([]); // danh sách KH
   const [outsources, setOutsources] = useState([]); // Đối tác Gia công
   const [suppliers, setSuppliers] = useState([]);   // Đối tác Nhà cung cấp
+
+  //State hiển thị lỗi
+  const [receiptCategoryError, setReceiptCategoryError] = useState("");
+  const [itemError, setItemsError] = useState("");
+  const [referenceDocumentError, setReferenceDocumentError] = useState("");
+  const [partnerError, setPartnerError] = useState("");
 
   // Ẩn / Hiện Modal
   const [isChooseDocModalOpen, setIsChooseDocModalOpen] = useState(false);
@@ -108,10 +116,21 @@ const AddReceiptNoteGeneral = () => {
   const initialNextCode = location.state?.nextCode;
 
   // Ẩn kho KPL khỏi dropdown nếu không phải "Hàng hóa trả lại"
-  const isReturnCategory = category === "Hàng hóa trả lại";
+  const isReturnCategory = category === "Hàng hóa trả lại" || category === "Khác";
   const filteredWarehouses = warehouses.filter(w =>
     isReturnCategory || w.warehouseCode !== "KPL"
   );
+
+  // Lọc các sản phẩm chưa được chọn (trừ chính dòng hiện tại)
+const getAvailableProducts = (currentRowId) => {
+  const selectedCodes = manualItems
+    .filter(item => item.id !== currentRowId)
+    .map(item => item.selected?.code)
+    .filter(Boolean);
+  
+  return getDropdownListByCategory().filter(option => !selectedCodes.includes(option.code));
+};
+
 
   const { fetchPendingReceiveOutsources } = useIssueNote();
 
@@ -177,6 +196,7 @@ const AddReceiptNoteGeneral = () => {
   useEffect(() => {
     // Lấy danh sách kho, sản phẩm, mã phiếu nhập
     const fetchInitData = async () => {
+      setLoading(true);
       try {
         // Lấy danh sách kho
         const resWarehouses = await getWarehouseList();
@@ -192,6 +212,8 @@ const AddReceiptNoteGeneral = () => {
         setReceiptCode(nextCode);
       } catch (err) {
         console.error("Lỗi khi lấy dữ liệu khởi tạo:", err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchInitData();
@@ -277,7 +299,15 @@ const AddReceiptNoteGeneral = () => {
   // ------------------ Khi chọn chứng từ từ modal => load chi tiết ------------------
   const handleChooseDoc = async (selectedDoc) => {
     setIsChooseDocModalOpen(false);
-    if (!selectedDoc) return;
+    if (!selectedDoc) {
+      setPartnerId(null);
+      setPartnerName("");
+      setAddress("");
+      setContactName("");
+      setPartnerPhone("");
+      setReferenceDocument(null);
+      return;
+    }
 
     setReferenceDocument(selectedDoc.value);
 
@@ -404,17 +434,22 @@ const AddReceiptNoteGeneral = () => {
       quantity: "",
     };
     setManualItems(prev => [...prev, newItem]);
-    // setQuantityErrors(prev => ({
-    //   ...prev,
-    //   product: {
-    //     ...prev.product,
-    //     [newItem.id]: "Chưa chọn sản phẩm/vật tư!"
-    //   },
-    //   warehouse: {
-    //     ...prev.warehouse,
-    //     ...(defaultWarehouseCode ? {} : { [newItem.id]: "Chưa chọn kho nhập!" })
-    //   }
-    // }));
+    setQuantityErrors(prev => ({
+      ...prev,
+      product: {
+        ...prev.product,
+        [newItem.id]: ""
+      },
+      warehouse: {
+        ...prev.warehouse,
+        ...(defaultWarehouseCode ? {} : { [newItem.id]: "" })
+      },
+      quantity: {
+        ...prev.quantity,
+        [newItem.id]: ""
+      }
+    }));
+    setItemsError("");
   };
 
   const handleRemoveRow = (id) => {
@@ -424,27 +459,6 @@ const AddReceiptNoteGeneral = () => {
   const handleRemoveAllRows = () => {
     setManualItems([]);
     setCurrentPage(0);
-  };
-
-  // region: Xử lí file upload
-  /**
-   * Khi user chọn file
-   */
-  const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    if (selectedFiles.length + files.length > 3) {
-      alert("Bạn chỉ được tải lên tối đa 3 file!");
-      return;
-    }
-    setFiles([...files, ...selectedFiles]);
-  };
-
-  /**
-   * Xoá 1 file đã chọn
-   * @param {Number} index - index file trong mảng
-   */
-  const handleRemoveFile = (index) => {
-    setFiles(files.filter((_, i) => i !== index));
   };
 
   // region: Phân trang
@@ -471,17 +485,27 @@ const AddReceiptNoteGeneral = () => {
   const handleSaveReceipt = async () => {
     // Nếu chưa chọn category => return
     if (!category) {
-      alert("Vui lòng chọn Phân loại nhập kho!");
+      setReceiptCategoryError("Vui lòng chọn phân loại nhập kho!");
       return;
     }
     if (isSaving) {
       return;
     }
 
+    if ((category === "Vật tư mua bán" || category === "Hàng hóa gia công") && referenceDocument === null) {
+      setReferenceDocumentError("Vui lòng chọn một chứng từ tham chiếu!");
+      return;
+    }
+
+    if (category === "Hàng hóa trả lại" && partnerId === null) {
+      setPartnerError("Vui lòng chọn khách hàng!");
+      return;
+    }
+
     // Kiểm tra xem bảng danh sách có ít nhất 1 sản phẩm không
-    const currentItems = isReferenceFlow ? documentItems : manualItems;
-    if (currentItems.length === 0) {
-      alert("Vui lòng nhập ít nhất một hàng hóa với số lượng nhập hợp lệ!");
+    if ((category !== "Vật tư mua bán" && category !== "Hàng hóa gia công") && manualItems.length === 0) {
+      console.log("category", category);
+      setItemsError("Vui lòng thêm ít nhất một hàng hóa!");
       return;
     }
 
@@ -490,10 +514,10 @@ const AddReceiptNoteGeneral = () => {
       ? documentItems.every(row => Number(row.enteredQuantity) === 0)
       : manualItems.every(row => Number(row.quantity) === 0);
 
-    if (allQuantitiesZero) {
-      alert("Vui lòng nhập ít nhất một hàng hóa với số lượng nhập lớn hơn 0!");
-      return;
-    }
+    // if (allQuantitiesZero) {
+    //   setItemsError("Vui lòng thêm ít nhất một hàng hóa!");
+    //   return;
+    // }
 
     let localErrors = {
       product: {},
@@ -508,7 +532,7 @@ const AddReceiptNoteGeneral = () => {
       documentItems.forEach(row => {
         if (!row.warehouseCode) {
           hasError = true;
-          localErrors.warehouse[row.id] = "Chưa chọn kho nhập!";
+          localErrors.warehouse[row.id] = "Vui lòng chọn kho nhập!";
         }
         const enteredQty = Number(row.enteredQuantity);
         const maxRemain = (row.orderedQuantity || 0) - (row.receivedQuantity || 0);
@@ -521,15 +545,15 @@ const AddReceiptNoteGeneral = () => {
       manualItems.forEach(row => {
         if (!row.selected) {
           hasError = true;
-          localErrors.product[row.id] = "Chưa chọn sản phẩm/vật tư!";
+          localErrors.product[row.id] = "Vui lòng chọn sản phẩm/vật tư cho dòng này!";
         }
         if (!row.warehouse) {
           hasError = true;
-          localErrors.warehouse[row.id] = "Chưa chọn kho nhập!";
+          localErrors.warehouse[row.id] = "Vui lòng chọn kho nhập!";
         }
         if (!row.quantity || row.quantity <= 0 || row.quantity > 100000) {
           hasError = true;
-          localErrors.quantity[row.id] = "Số lượng không hợp lệ!";
+          localErrors.quantity[row.id] = "Số lượng phải lớn hơn 0!";
         }
       });
     }
@@ -589,6 +613,9 @@ const AddReceiptNoteGeneral = () => {
       // Gọi API tạo phiếu nhập
       const response = await createReceiptNote(payload);
 
+      window.dispatchEvent(new Event("refreshNotifications"));
+
+
       // Upload file đính kèm nếu có
       if (files.length > 0) {
         await uploadPaperEvidence(response.grnId, "GOOD_RECEIPT_NOTE", files);
@@ -598,7 +625,7 @@ const AddReceiptNoteGeneral = () => {
     } catch (err) {
       console.error("❌ Lỗi khi lưu phiếu nhập:", err);
       let msg = err?.response?.data?.message || err.message || "Lỗi không xác định!";
-      alert("Không thể lưu phiếu nhập: " + msg);
+      console.log("Không thể lưu phiếu nhập: " + msg);
     } finally {
       setIsSaving(false);
     }
@@ -622,7 +649,7 @@ const AddReceiptNoteGeneral = () => {
       editable: false,
       filterable: false,
       renderCell: (params) => {
-        const dropdownList = getDropdownListByCategory();
+        const dropdownList = getAvailableProducts(params.row.id);
         const rowError = quantityErrors.product?.[params.id] || "";
         return (
           <Autocomplete
@@ -633,15 +660,21 @@ const AddReceiptNoteGeneral = () => {
             value={params.row.selected || null}
             onChange={(e, newValue) => handleChangeSelectedItem(params.row.id, newValue)}
             renderInput={(params) => (
-              <TextField
-                {...params}
-                color="success"
-                variant="outlined"
-                placeholder="Chọn mã hàng"
-                size="small"
-                error={!!rowError}
-                helperText={rowError}
-              />
+              <div>
+                <TextField
+                  {...params}
+                  color="success"
+                  variant="outlined"
+                  placeholder="Chọn mã hàng"
+                  size="small"
+                  error={!!rowError}
+                />
+                {rowError && (
+                  <Typography className="text-xs text-red-500 mt-1">
+                    {rowError}
+                  </Typography>
+                )}
+              </div>
             )}
           />
         );
@@ -700,7 +733,7 @@ const AddReceiptNoteGeneral = () => {
                   ...prev,
                   warehouse: {
                     ...prev.warehouse,
-                    [params.row.id]: "Chưa chọn kho nhập!"
+                    [params.row.id]: "Vui lòng chọn kho nhập!"
                   }
                 }));
               } else {
@@ -712,15 +745,21 @@ const AddReceiptNoteGeneral = () => {
               }
             }}
             renderInput={(params) => (
-              <TextField
-                {...params}
-                color="success"
-                variant="outlined"
-                placeholder="Chọn kho"
-                size="small"
-                error={!!rowError}
-                helperText={rowError}
-              />
+              <div>
+                <TextField
+                  {...params}
+                  color="success"
+                  variant="outlined"
+                  placeholder="Chọn kho"
+                  size="small"
+                  error={!!rowError}
+                />
+                {rowError && (
+                  <Typography className="text-xs text-red-500 mt-1">
+                    {rowError}
+                  </Typography>
+                )}
+              </div>
             )}
           />
         );
@@ -728,7 +767,7 @@ const AddReceiptNoteGeneral = () => {
     },
     {
       field: 'quantity',
-      headerName: 'Số lượng',
+      headerName: 'Số lượng nhập',
       editable: false,
       filterable: false,
       minWidth: 200,
@@ -741,12 +780,16 @@ const AddReceiptNoteGeneral = () => {
               size="small"
               color="success"
               error={!!rowError}
-              helperText={rowError}
               value={params.row.quantity}
               placeholder="0"
               onChange={(e) => handleChangeQuantity(params.id, e.target.value)}
               style={{ width: '100%' }}
             />
+            {rowError && (
+              <Typography className="text-xs text-red-500 mt-1">
+                {rowError}
+              </Typography>
+            )}
           </div>
         );
       }
@@ -854,6 +897,27 @@ const AddReceiptNoteGeneral = () => {
     }
   };
 
+  const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-8 flex flex-col gap-12">
       <Card className="bg-gray-50 p-7 rounded-none shadow-none">
@@ -888,12 +952,22 @@ const AddReceiptNoteGeneral = () => {
                 onChange={(e) => {
                   setCategory(e.target.value);
                   // Nếu đổi category => xóa referenceDocument cũ (nếu có)
+                  setReceiptCategoryError("");
+                  setPartnerId(null);
+                  setPartnerName("");
+                  setAddress("");
+                  setContactName("");
+                  setPartnerPhone("");
                   setReferenceDocument(null);
+                  setReferenceDocumentError("");
+                  setItemsError("");
                   setDocumentItems([]);
                   setManualItems([]);
+                  setQuantityErrors([]);
                 }}
                 fullWidth
                 size="small"
+                error={!!receiptCategoryError}
               >
                 <MenuItem value="Thành phẩm sản xuất">Thành phẩm sản xuất</MenuItem>
                 <MenuItem value="Vật tư mua bán">Vật tư mua bán</MenuItem>
@@ -902,6 +976,12 @@ const AddReceiptNoteGeneral = () => {
                 <MenuItem value="Vật tư thừa sau sản xuất">Vật tư thừa sau sản xuất</MenuItem>
                 <MenuItem value="Khác">Khác</MenuItem>
               </TextField>
+
+              {receiptCategoryError && (
+                <Typography color="red" className="text-sm pb-4">
+                  {receiptCategoryError}
+                </Typography>
+              )}
             </div>
 
             {/* Tham chiếu chứng từ (nếu là Vật tư mua bán / Hàng hóa gia công) */}
@@ -924,12 +1004,15 @@ const AddReceiptNoteGeneral = () => {
                       </div>
                     </li>
                   )}
+                  disableClearable
+                  clearIcon={null}
                   onChange={(event, newValue) => {
                     if (newValue) {
                       handleChooseDoc({
                         poId: newValue.value, // poId 
                         ...newValue
                       });
+                      setReferenceDocumentError("");
                     } else {
                       setReferenceDocument(null);
                       setPartnerName("");
@@ -946,22 +1029,46 @@ const AddReceiptNoteGeneral = () => {
                       hiddenLabel
                       color="success"
                       size="small"
+                      error={!!referenceDocumentError}
                       InputProps={{
                         ...params.InputProps,
                         endAdornment: (
-                          <>
-                            <IconButton onClick={() => setIsChooseDocModalOpen(true)}
-                              size="small">
+                          <div className="flex items-center space-x-1">
+                            <IconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsChooseDocModalOpen(true);
+                              }}
+                              size="small"
+                            >
                               <Search fontSize="20px" />
                             </IconButton>
+
+                            {referenceDocument && (
+                              <IconButton
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleChooseDoc(null);
+                                }}
+                                size="small"
+                              >
+                                <ClearRounded fontSize="18px" />
+                              </IconButton>
+                            )}
                             {params.InputProps.endAdornment}
-                          </>
+                          </div>
                         ),
                       }}
                     />
                   )}
                   isOptionEqualToValue={(option, value) => option.value === value.value}
                 />
+
+                {referenceDocumentError && (
+                  <Typography color="red" className="text-sm pb-4">
+                    {referenceDocumentError}
+                  </Typography>
+                )}
               </div>
             )}
 
@@ -1121,12 +1228,14 @@ const AddReceiptNoteGeneral = () => {
                       setAddress(selectedOption.address || "");
                       setContactName(selectedOption.contactName || "");
                       setPartnerPhone(selectedOption.phone || "");
+                      setPartnerError("");
                     } else {
                       setPartnerId(null);
                       setPartnerName("");
                       setAddress("");
                       setContactName("");
                       setPartnerPhone("");
+                      setPartnerError("Vui lòng chọn khách hàng!");
                     }
                   }}
 
@@ -1141,10 +1250,16 @@ const AddReceiptNoteGeneral = () => {
                       color="success"
                       hiddenLabel
                       placeholder="Chọn đối tác"
+                      error={!!partnerError}
                       size="small"
                     />
                   )}
                 />
+                {partnerError && (
+                  <Typography color="red" className="text-sm pb-4">
+                    {partnerError}
+                  </Typography>
+                )}
               </div>
 
               <div>
@@ -1358,6 +1473,13 @@ const AddReceiptNoteGeneral = () => {
               enableSelection={false}
             />
           )}
+
+          {itemError && (
+            <Typography color="red" className="text-sm pb-2 pt-4">
+              {itemError}
+            </Typography>
+          )}
+
           {/* Phân trang */}
           {totalElements > 0 && (
             <div className="flex items-center justify-between pt-4">

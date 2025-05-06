@@ -8,12 +8,14 @@ const usePartner = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [selectedType, setSelectedType] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchPaginatedPartners();
   }, [selectedType]);
 
   const fetchPaginatedPartners = async (page = currentPage, size = pageSize) => {
+    setLoading(true);
     try {
 
       let data = null; 
@@ -33,6 +35,8 @@ const usePartner = () => {
       setPartners([]);
       setTotalPages(0);
       setTotalElements(0);
+    } finally {
+      setLoading(false)
     }
   };
 
@@ -59,6 +63,7 @@ const usePartner = () => {
     selectedType,
     totalPages,
     totalElements,
+    loading,
     fetchPaginatedPartners,
     handlePageChange,
     handleSelectType,

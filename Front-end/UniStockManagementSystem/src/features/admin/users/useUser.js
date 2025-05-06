@@ -6,9 +6,11 @@ const useUser = () => {
   const [users, setUsers] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // ✅ Thêm state tổng số trang
   const [totalElements, setTotalElements] = useState(0); // ✅ Thêm state tổng số người dùng
+  const [loading, setLoading] = useState(false); // ✅ Thêm loading
 
   // 🟢 **Lấy danh sách Users từ API**
   const fetchPaginatedUsers = async (page = 0, size = 5) => {
+    setLoading(true); // ✅ Bắt đầu loading
     try {
       const data = await getUsers(page, size);
       setUsers(data.content || []); // ✅ Đảm bảo dữ liệu là mảng
@@ -16,6 +18,8 @@ const useUser = () => {
       setTotalElements(data.totalElements || 0); // ✅ Cập nhật tổng số người dùng
     } catch (error) {
       console.error("❌ Không thể tải danh sách Users:", error);
+    } finally {
+      setLoading(false); // ✅ Kết thúc loading
     }
   };
 
@@ -64,7 +68,7 @@ const useUser = () => {
     fetchPaginatedUsers();
   }, []);
 
-  return { users, fetchPaginatedUsers, deleteUser, toggleStatus, totalPages, totalElements, getUserById };
+  return { users, fetchPaginatedUsers, deleteUser, toggleStatus, totalPages, totalElements, getUserById, loading };
 };
 
 export default useUser;

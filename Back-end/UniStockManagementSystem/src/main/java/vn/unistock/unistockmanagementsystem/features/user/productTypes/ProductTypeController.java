@@ -20,10 +20,12 @@ public class ProductTypeController {
     @GetMapping
     public ResponseEntity<Page<ProductTypeDTO>> getAllProductTypes(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean status
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<ProductTypeDTO> productTypes = productTypeService.getAllProductTypes(pageable);
+        Page<ProductTypeDTO> productTypes = productTypeService.getAllProductTypes(pageable, search, status);
         return ResponseEntity.ok(productTypes);
     }
 

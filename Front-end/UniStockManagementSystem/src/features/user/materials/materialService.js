@@ -11,14 +11,29 @@ const authHeader = () => {
 };
 
 // Lấy danh sách nguyên vật liệu phân trang
-export const getAllMaterials = async (page = 0, size = 10) => {
+export const getAllMaterials = async (page = 0, size = 10, filters = {}) => {
   try {
+    const { search, statuses, typeIds } = filters;
+    const params = { page, size };
+
+    // 👉 Thêm search nếu có
+    if (search) {
+      params.search = search;
+    }
+
+    // 👉 Thêm statuses nếu có
+    if (Array.isArray(statuses) && statuses.length > 0) {
+      statuses.forEach((s) => params.statuses = s);
+    }
+
+    // 👉 Thêm typeIds nếu có
+    if (Array.isArray(typeIds) && typeIds.length > 0) {
+      typeIds.forEach((id) => params.typeIds = id);
+    }
+
     const response = await axios.get(API_URL, {
       headers: authHeader(),
-      params: {
-        page: page,
-        size: size,
-      },
+      params,
     });
 
     console.log("📌 [getAllMaterials] API Response:", response.data);

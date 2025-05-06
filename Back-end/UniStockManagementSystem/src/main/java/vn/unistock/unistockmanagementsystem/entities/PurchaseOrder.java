@@ -44,7 +44,7 @@ public class PurchaseOrder {
         PENDING("Chờ nhận"),
         IN_PROGRESS("Đã nhập một phần"),
         COMPLETED("Hoàn thành"),
-        CANCELED("Hủy");
+        CANCELLED("Hủy");
 
         private final String label;
 

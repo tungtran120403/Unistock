@@ -34,7 +34,8 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
         if (request.getRequestURI().equals("/api/unistock/auth/me")
                 || request.getRequestURI().equals("/api/unistock/profile")
                 || request.getRequestURI().equals("/api/unistock/profile/change-password")
-                || request.getRequestURI().equals("/api/unistock/profile/avatar")) {
+                || request.getRequestURI().equals("/api/unistock/profile/avatar")
+                || request.getRequestURI().equals("/api/unistock/user/notification/unread")) {
             filterChain.doFilter(request, response);
             return;
         }

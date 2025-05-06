@@ -7,11 +7,22 @@ const useProductType = () => {
     const [totalElements, setTotalElements] = useState(0);
     const [loading, setLoading] = useState(false);
 
-    const fetchProductTypes = useCallback(async (page = 0, size = 10) => {
+    const [filterState, setFilterState] = useState({
+        search: undefined,
+        statuses: undefined,
+    }); 
+    
+    const fetchProductTypes = useCallback(async (page = 0, size = 10, filters = filterState, showLoading = true) => {
         try {
-            setLoading(true);
-            const data = await fetchProductTypesService(page, size);
-
+            if (showLoading) setLoading(true);
+            const data = await fetchProductTypesService({
+                page,
+                size,
+                search: filters?.search,
+                statuses: filters?.statuses,
+            });
+    
+            // Xử lý data như cũ
             if (Array.isArray(data)) {
                 setProductTypes(data);
                 setTotalPages(1);
@@ -32,23 +43,53 @@ const useProductType = () => {
             setTotalElements(0);
             console.error("❌ Lỗi khi lấy danh sách dòng sản phẩm:", error.message);
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     }, []);
+    
+    const applyFilters = useCallback((filters, page = 0, size = 10, showLoading = false) => {
+        setFilterState(prevState => ({
+            ...prevState,
+            ...filters
+        }));
+        fetchProductTypes(page, size, filters, showLoading);
+    }, [fetchProductTypes]);    
+    
+    // const fetchProductTypes = useCallback(async (page = 0, size = 10, filters = filterState) => {
+    //     try {
+    //         setLoading(true);
+            
+    //         // Đảm bảo filters luôn có giá trị hợp lệ
+    //         const currentFilters = filters || filterState;
+            
+    //         const data = await fetchProductTypesService({
+    //             page,
+    //             size,
+    //             search: currentFilters?.search,
+    //             statuses: currentFilters?.statuses,
+    //         });
+            
+    //         // Xử lý dữ liệu trả về...
+    //     } catch (error) {
+    //         // Xử lý lỗi...
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // }, [filterState]);
 
-    const toggleStatus = async (typeId, currentStatus) => {
+    const toggleStatus = async (typeId, currentStatus, page = 0, size = 10) => {
         try {
             setLoading(true);
             const newStatus = !currentStatus;
             await toggleStatusService(typeId, newStatus);
-            await fetchProductTypes(); // Làm mới danh sách sau khi thay đổi trạng thái
+            await fetchProductTypes(page, size, filterState);
         } catch (error) {
             console.error("❌ Lỗi khi thay đổi trạng thái:", error.message);
         } finally {
             setLoading(false);
         }
     };
-
+    
     const createProductType = async (productTypeData) => {
         try {
             setLoading(true);
@@ -84,6 +125,7 @@ const useProductType = () => {
         updateProductType,
         totalElements,
         loading,
+        applyFilters,
     };
 };
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import useWarehouse from "./useWarehouse";
 import { updateWarehouseStatus, createWarehouse, fetchWarehouses } from "./warehouseService";
 import { getWarehouseById } from "./warehouseService";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { BiExport, BiImport, BiSearch } from "react-icons/bi";
 import {
   Card,
@@ -23,11 +23,13 @@ import Table from "@/components/Table";
 import StatusFilterButton from "@/components/StatusFilterButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SuccessAlert from "@/components/SuccessAlert";
+import ErrorAlert from "@/components/ErrorAlert";
+import CircularProgress from '@mui/material/CircularProgress';
 
 // Define the WarehousePage component
 const WarehousePage = () => {
   // Destructure values from useWarehouse hook
-  const { warehouses, fetchPaginatedWarehouses, toggleStatus, totalPages, totalElements } = useWarehouse();
+  const { warehouses, fetchPaginatedWarehouses, toggleStatus, totalPages, totalElements, loading } = useWarehouse();
   const navigate = useNavigate(); // Hook for navigation
   const [openAddModal, setOpenAddModal] = useState(false); // State to control Add Modal visibility
   const [openEditModal, setOpenEditModal] = useState(false); // State to control Edit Modal visibility
@@ -36,6 +38,8 @@ const WarehousePage = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [successAlertOpen, setSuccessAlertOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [errorAlertOpen, setErrorAlertOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [pendingToggleRow, setPendingToggleRow] = useState(null);
   // State for pagination
   const [currentPage, setCurrentPage] = useState(0); // Current page number
@@ -43,7 +47,33 @@ const WarehousePage = () => {
 
   const [statusAnchorEl, setStatusAnchorEl] = useState(null);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const location = useLocation();
 
+  useEffect(() => {
+            // Lấy thông tin user từ localStorage
+            const storedUser = localStorage.getItem("user");
+            if (storedUser) {
+                try {
+                    setCurrentUser(JSON.parse(storedUser));
+                } catch (err) {
+                    console.error("Lỗi parse JSON từ localStorage:", err);
+                }
+            }
+    
+            if (location.state?.successMessage) {
+                console.log("Component mounted, location.state:", location.state?.successMessage);
+                setAlertMessage(location.state.successMessage);
+                setShowSuccessAlert(true);
+                // Xóa state để không hiển thị lại nếu người dùng refresh
+                window.history.replaceState({}, document.title);
+            }
+        }, [location.state]);
+  useEffect(() => {
+          if (currentUser && !currentUser.permissions?.includes("getWarehouses")) {
+            navigate("/unauthorized");
+          }
+        }, [currentUser, navigate]);
   // Fetch warehouses when the component mounts or pagination changes
   useEffect(() => {
     const selectedStatusValue =
@@ -91,7 +121,7 @@ const WarehousePage = () => {
       setOpenEditModal(true);
     } catch (error) {
       console.error(" Error fetching warehouse data:", error);
-      alert("Unable to fetch warehouse data!");
+      console.log("Unable to fetch warehouse data!");
     }
   };
 
@@ -169,8 +199,29 @@ const WarehousePage = () => {
     isActive: warehouse.isActive,
   }));
 
+  const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+    <div className="mb-8 flex flex-col gap-12">
       <Card className="bg-gray-50 p-7 rounded-none shadow-none">
         <CardBody className="pb-2 bg-white rounded-xl">
           <PageHeader
@@ -268,9 +319,9 @@ const WarehousePage = () => {
 
       {/* Modal Add Warehouse */}
       {openAddModal && <ModalAddWarehouse show={openAddModal} onClose={() => setOpenAddModal(false)} onAdd={() => {
-        setCurrentPage(0); 
+        setCurrentPage(0);
         fetchPaginatedWarehouses(1, pageSize);
-        setSuccessMessage("Thêm kho thành công!"), setSuccessAlertOpen(true);
+        setSuccessMessage("Tạo kho thành công!"), setSuccessAlertOpen(true);
       }} />}
 
       {/* Modal Edit Warehouse */}
@@ -279,13 +330,18 @@ const WarehousePage = () => {
       <ConfirmDialog
         open={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}
-        onConfirm={() => {
-          if (pendingToggleRow) {
-            toggleStatus(pendingToggleRow.id, pendingToggleRow.isActive); // truyền đúng giá trị mới
-            setSuccessMessage("Cập nhật trạng thái thành công!");
-            setSuccessAlertOpen(true);
-          }
+        onConfirm={async () => {
           setConfirmDialogOpen(false);
+          if (pendingToggleRow) {
+            const result = await toggleStatus(pendingToggleRow.id, pendingToggleRow.isActive);
+            if (result.success) {
+              setSuccessMessage("Cập nhật trạng thái thành công!");
+              setSuccessAlertOpen(true);
+            } else {
+              setErrorMessage(result.message || "Lỗi khi cập nhật trạng thái kho");
+              setErrorAlertOpen(true);
+            }
+          }
         }}
         message={`Bạn có chắc chắn muốn ${pendingToggleRow?.isActive ? "ngưng hoạt động" : "kích hoạt"} kho này không?`}
         confirmText="Có"
@@ -296,6 +352,13 @@ const WarehousePage = () => {
         open={successAlertOpen}
         onClose={() => setSuccessAlertOpen(false)}
         message={successMessage}
+      />
+
+      <ErrorAlert
+        open={errorAlertOpen}
+        onClose={() => setErrorAlertOpen(false)}
+        title="Thao tác không thành công!"
+        message={errorMessage}
       />
     </div>
   );

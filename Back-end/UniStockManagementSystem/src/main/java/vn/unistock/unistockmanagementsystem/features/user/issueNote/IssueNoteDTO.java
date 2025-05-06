@@ -28,4 +28,5 @@ public class IssueNoteDTO {
     private List<IssueNoteDetailDTO> details;
     private List<IssueNoteDetailDTO> expectedReturns;
     private List<String> paperEvidence;
+    private ReceiveOutsourceDTO receiveOutsource;
 }

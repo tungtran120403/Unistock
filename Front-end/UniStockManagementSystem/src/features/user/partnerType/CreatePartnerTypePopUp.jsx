@@ -70,7 +70,7 @@ const CreatePartnerTypePopup = ({ onClose, onSuccess }) => {
                     setErrorTypeName("Tên nhóm đối tác đã tồn tại.");
                 }
             } else {
-                alert("Lỗi khi tạo nhóm đối tác! Vui lòng thử lại.");
+                console.log("Lỗi khi tạo nhóm đối tác! Vui lòng thử lại.");
             }
         }
     };

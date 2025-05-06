@@ -1,8 +1,8 @@
 spring:
   datasource:
-    #    url: jdbc:mysql://localhost:3306/unistock?createDatabaseIfNotExist=true
-    #    username: root
-    #    password: 1234
+#    url: jdbc:mysql://localhost:3306/unistock?createDatabaseIfNotExist=true
+#    username: root
+#    password: 123456
     url: jdbc:mysql://unistock2.mysql.database.azure.com/unistock?sslMode=REQUIRED
     username: uniadmin
     password: tst120403@
@@ -19,7 +19,7 @@ spring:
 
 app:
   cors:
-    allowed-origins: "http://localhost:3000,https://happy-glacier-0b250c700.6.azurestaticapps.net"
+    allowed-origins: "http://localhost:3000,https://happy-glacier-0b250c700.6.azurestaticapps.net,https://unistock.online"
   file:
     images:
       location: public/images/

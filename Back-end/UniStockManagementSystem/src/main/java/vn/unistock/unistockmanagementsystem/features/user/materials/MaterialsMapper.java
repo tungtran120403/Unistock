@@ -19,6 +19,7 @@ public interface MaterialsMapper {
     @Mapping(source = "materialType.name", target = "typeName")
     @Mapping(source = "isUsing", target = "isUsing")
     @Mapping(source = "materialPartners", target = "supplierIds", qualifiedByName = "mapSuppliers")
+    @Mapping(source = "lowStockThreshold", target = "lowStockThreshold")
     MaterialsDTO toDTO(Material material);
 
     @Named("mapSuppliers")

@@ -3,15 +3,19 @@ import { Button, Typography } from "@mui/material";
 import { IconButton } from "@mui/material";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import FilePreviewDialog from "@/components/FilePreviewDialog";
+import WarningAlert from "@/components/WarningAlert";  // ✅ đổi path nếu cần
 
 const FileUploadBox = ({ files, setFiles, maxFiles = 3 }) => {
     const inputRef = useRef();
     const [previewFile, setPreviewFile] = useState(null);
+    const [warningOpen, setWarningOpen] = useState(false);
+    const [warningMessage, setWarningMessage] = useState("");
 
     const handleFileChange = (e) => {
         const selected = Array.from(e.target.files);
         if (selected.length + files.length > maxFiles) {
-            alert(`Chỉ được tải lên tối đa ${maxFiles} file!`);
+            setWarningMessage(`Chỉ được tải lên tối đa ${maxFiles} file!`);
+            setWarningOpen(true);
             return;
         }
         setFiles([...files, ...selected]);
@@ -21,7 +25,8 @@ const FileUploadBox = ({ files, setFiles, maxFiles = 3 }) => {
         e.preventDefault();
         const dropped = Array.from(e.dataTransfer.files);
         if (dropped.length + files.length > maxFiles) {
-            alert(`Chỉ được tải lên tối đa ${maxFiles} file!`);
+            setWarningMessage(`Chỉ được tải lên tối đa ${maxFiles} file!`);
+            setWarningOpen(true);
             return;
         }
         setFiles([...files, ...dropped]);
@@ -121,6 +126,12 @@ const FileUploadBox = ({ files, setFiles, maxFiles = 3 }) => {
                 open={!!previewFile}
                 onClose={handleClosePreview}
                 showDownload={false}
+            />
+
+            <WarningAlert
+                open={warningOpen}
+                onClose={() => setWarningOpen(false)}
+                message={warningMessage}
             />
         </div>
     );

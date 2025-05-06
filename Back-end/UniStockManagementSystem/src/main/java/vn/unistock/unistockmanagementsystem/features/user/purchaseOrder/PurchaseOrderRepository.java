@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import vn.unistock.unistockmanagementsystem.entities.PurchaseOrder;
 import vn.unistock.unistockmanagementsystem.entities.SalesOrder;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 @Repository
@@ -37,14 +38,20 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     SELECT p FROM PurchaseOrder p
     LEFT JOIN p.partner supplier
     LEFT JOIN p.purchaseRequest pr
-    WHERE (:search IS NULL OR LOWER(p.poCode) LIKE LOWER(CONCAT('%', :search, '%'))
+    WHERE 
+      ((:search IS NULL OR :search = '' )
+           OR LOWER(p.poCode) LIKE LOWER(CONCAT('%', :search, '%'))
            OR LOWER(supplier.partnerName) LIKE LOWER(CONCAT('%', :search, '%'))
            OR LOWER(pr.purchaseRequestCode) LIKE LOWER(CONCAT('%', :search, '%')))
       AND (:status IS NULL OR p.status = :status)
+      AND (:startDate IS NULL OR p.orderDate >= :startDate)
+      AND (:endDate IS NULL OR p.orderDate <= :endDate)
 """)
-    Page<PurchaseOrder> searchFilteredOrders(@Param("search") String search,
-                                             @Param("status") PurchaseOrder.OrderStatus status,
-                                             Pageable pageable);
-
-
+    Page<PurchaseOrder> searchFilteredOrders(
+            @Param("search") String search,
+            @Param("status") PurchaseOrder.OrderStatus status,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable
+    );
 }

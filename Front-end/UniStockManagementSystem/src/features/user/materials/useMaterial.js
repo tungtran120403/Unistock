@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { getAllMaterials } from "./materialService";
 import axios from "axios";
 
-
 const authHeader = () => {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -16,11 +15,11 @@ const useMaterial = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
 
-  const fetchPaginatedMaterials = async (page = currentPage, size = pageSize) => {
+  const fetchPaginatedMaterials = async (page = currentPage, size = pageSize, filters = {}, showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       console.log("Fetching materials with page:", page, "size:", size);
-      const response = await getAllMaterials(page, size);
+      const response = await getAllMaterials(page, size, filters);
 
       console.log("API Response:", response);
 
@@ -34,26 +33,25 @@ const useMaterial = () => {
       setTotalPages(0);
       setTotalElements(0);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   const handleToggleStatus = async (materialId) => {
     if (!materialId) {
-      alert("❌ Lỗi: Không tìm thấy ID nguyên vật liệu!");
+      console.log("❌ Lỗi: Không tìm thấy ID nguyên vật liệu!");
       return;
     }
 
     try {
       const response = await axios.patch(
         `${import.meta.env.VITE_API_URL}/user/materials/${materialId}/toggle-using`,
-        {}, // PATCH request cần body rỗng
-        { headers: authHeader() } // ✅ Thêm Bearer Token vào headers
+        {},
+        { headers: authHeader() }
       );
 
       console.log("✅ [handleToggleStatus] API Response:", response.data);
 
-      // Cập nhật trạng thái trong React state
       setMaterials((prevMaterials) =>
         prevMaterials.map((mat) =>
           mat.materialId === materialId ? { ...mat, isUsing: response.data.isUsing } : mat
@@ -62,12 +60,9 @@ const useMaterial = () => {
 
     } catch (error) {
       console.error("❌ Lỗi khi thay đổi trạng thái:", error);
-      alert("Lỗi khi thay đổi trạng thái nguyên vật liệu!");
+      console.log("Lỗi khi thay đổi trạng thái nguyên vật liệu!");
     }
   };
-
-
-
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -80,7 +75,6 @@ const useMaterial = () => {
     fetchPaginatedMaterials(0, size);
   };
 
-  // Load dữ liệu ban đầu
   useEffect(() => {
     fetchPaginatedMaterials();
   }, []);

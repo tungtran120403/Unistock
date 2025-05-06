@@ -22,7 +22,6 @@ import {
     exportExcel,
     createMaterial,
     fetchMaterialCategories,
-
 } from "./materialService";
 import { fetchActiveUnits } from "../unit/unitService";
 import { getPartnersByType } from "../partner/partnerService";
@@ -31,9 +30,10 @@ import {
     Tooltip,
     Switch,
 } from "@material-tailwind/react";
-import ImportMaterialModal from "./ImportMaterialModal"; // Thêm import này
+import ImportMaterialModal from "./ImportMaterialModal";
 import StatusFilterButton from "@/components/StatusFilterButton";
 import { FaAngleDown } from "react-icons/fa";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const MaterialPage = () => {
     const navigate = useNavigate();
@@ -79,11 +79,9 @@ const MaterialPage = () => {
         },
     ];
 
-    // Handle search
     const handleSearch = () => {
-        // Reset to first page when searching
-        setCurrentPage(0);
-        fetchPaginatedReceiptNotes(0, pageSize, searchTerm);
+        // setCurrentPage(0);
+        fetchPaginatedMaterials(0, pageSize, buildFilters(), false);
     };
 
     const [newMaterial, setNewMaterial] = useState({
@@ -93,7 +91,8 @@ const MaterialPage = () => {
         unitId: "",
         typeId: "",
         isActive: "true",
-        supplierIds: []
+        supplierIds: [],
+        lowStockThreshold: '', // Thêm trường mới
     });
 
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -102,12 +101,38 @@ const MaterialPage = () => {
     const [alertMessage, setAlertMessage] = useState("");
     const location = useLocation();
 
+    const [currentUser, setCurrentUser] = useState(null);
+    
+      useEffect(() => {
+                // Lấy thông tin user từ localStorage
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    try {
+                        setCurrentUser(JSON.parse(storedUser));
+                    } catch (err) {
+                        console.error("Lỗi parse JSON từ localStorage:", err);
+                    }
+                }
+        
+                if (location.state?.successMessage) {
+                    console.log("Component mounted, location.state:", location.state?.successMessage);
+                    setAlertMessage(location.state.successMessage);
+                    setShowSuccessAlert(true);
+                    // Xóa state để không hiển thị lại nếu người dùng refresh
+                    window.history.replaceState({}, document.title);
+                }
+            }, [location.state]);
+      useEffect(() => {
+              if (currentUser && !currentUser.permissions?.includes("getAllMaterials")) {
+                navigate("/unauthorized");
+              }
+            }, [currentUser, navigate]);
+
     useEffect(() => {
         if (location.state?.successMessage) {
             console.log("Component mounted, location.state:", location.state?.successMessage);
             setAlertMessage(location.state.successMessage);
             setShowSuccessAlert(true);
-            // Xóa state để không hiển thị lại nếu người dùng refresh
             window.history.replaceState({}, document.title);
         }
     }, [location.state]);
@@ -137,30 +162,26 @@ const MaterialPage = () => {
     }, []);
 
     const handleExport = () => {
-        const confirmExport = window.confirm("Bạn có muốn xuất danh sách vật tư ra file Excel không?");
-        if (confirmExport) {
-            setLocalLoading(true);
-            exportExcel()
-                .then((blob) => {
-                    const url = window.URL.createObjectURL(new Blob([blob]));
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.setAttribute("download", "materials_export.xlsx");
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
-                    alert("✅ Xuất file Excel thành công!");
-                })
-                .catch((err) => {
-                    alert("❌ Lỗi khi xuất file Excel: " + (err.message || "Không xác định"));
-                })
-                .finally(() => {
-                    setLocalLoading(false);
-                });
-        }
+        setLocalLoading(true);
+        exportExcel()
+            .then((blob) => {
+                const url = window.URL.createObjectURL(new Blob([blob]));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", "materials_export.xlsx");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                console.log("✅ Xuất file Excel thành công!");
+            })
+            .catch((err) => {
+                console.log("❌ Lỗi khi xuất file Excel: " + (err.message || "Không xác định"));
+            })
+            .finally(() => {
+                setLocalLoading(false);
+            });
     };
-
 
     const handleEdit = (material) => {
         setSelectedMaterial(material);
@@ -170,9 +191,20 @@ const MaterialPage = () => {
         handlePageChange(selectedItem.selected);
     };
 
+    const buildFilters = () => ({
+        search: searchTerm || undefined,
+        statuses: selectedStatuses.length > 0 ? selectedStatuses.map(s => s.value) : undefined,
+        typeIds: selectedMaterialTypes.length > 0 ? selectedMaterialTypes.map(t => t.materialTypeId) : undefined,
+      });
+      useEffect(() => {
+        const isFilterChange = searchTerm || selectedStatuses.length > 0 || selectedMaterialTypes.length > 0;
+        fetchPaginatedMaterials(currentPage, pageSize, buildFilters(), !isFilterChange); 
+        // showLoading = false khi filter, true khi đổi page
+    }, [searchTerm, selectedStatuses, selectedMaterialTypes, currentPage, pageSize]);           
+
     const columnsConfig = [
-        { field: 'materialCode', headerName: 'Mã NVL', flex: 1, minWidth: 50, editable: false, filterable: false },
-        { field: 'materialName', headerName: 'Tên nguyên vật liệu', flex: 2, minWidth: 250, editable: false, filterable: false },
+        { field: 'materialCode', headerName: 'Mã VT', flex: 1, minWidth: 50, editable: false, filterable: false },
+        { field: 'materialName', headerName: 'Tên vật tư', flex: 2, minWidth: 250, editable: false, filterable: false },
         {
             field: 'unitName',
             headerName: 'Đơn vị',
@@ -208,7 +240,7 @@ const MaterialPage = () => {
                         }}
                     />
                 ) : (
-                    <Typography >-</Typography>
+                    <Typography>-</Typography>
                 );
             },
         },
@@ -270,26 +302,48 @@ const MaterialPage = () => {
         materialName: material.materialName,
         unitName: material.unitName || "N/A",
         materialTypeName: materialCategories.find(cat => cat.materialTypeId === material.typeId)?.name || material.typeName || "Không có danh mục",
+        lowStockThreshold: material.lowStockThreshold || 'N/A', // Thêm cột mới
         imageUrl: material.imageUrl,
         isUsing: material.isUsing,
     }));
 
-    const filteredMaterials = Array.isArray(materials)
-        ? materials.filter(material => {
-            const matchesSearch =
-                material.materialCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                material.materialName?.toLowerCase().includes(searchTerm.toLowerCase());
+    // const filteredMaterials = Array.isArray(materials)
+    //     ? materials.filter(material => {
+    //         const matchesSearch =
+    //             material.materialCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //             material.materialName?.toLowerCase().includes(searchTerm.toLowerCase());
 
-            const matchesMaterialType =
-                selectedMaterialTypes.length === 0 ||
-                selectedMaterialTypes.some((type) => type.materialTypeId === material.typeId);
+    //         const matchesMaterialType =
+    //             selectedMaterialTypes.length === 0 ||
+    //             selectedMaterialTypes.some((type) => type.materialTypeId === material.typeId);
 
-            return matchesSearch && matchesMaterialType;
-        })
-        : [];
+    //         return matchesSearch && matchesMaterialType;
+    //     })
+    //     : [];
+
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
+        <div className="mb-8 flex flex-col gap-12">
             <Card className="bg-gray-50 p-7 rounded-none shadow-none">
                 <CardBody className="pb-2 bg-white rounded-xl">
                     <PageHeader
@@ -321,7 +375,6 @@ const MaterialPage = () => {
                         </div>
 
                         <div className="mb-3 flex flex-wrap items-center gap-4">
-                            {/* Filter by status */}
                             <StatusFilterButton
                                 anchorEl={statusAnchorEl}
                                 setAnchorEl={setStatusAnchorEl}
@@ -331,7 +384,6 @@ const MaterialPage = () => {
                                 buttonLabel="Trạng thái"
                             />
 
-                            {/* Filter by material type */}
                             <Button
                                 onClick={(e) => setMaterialTypeAnchorEl(e.currentTarget)}
                                 size="sm"
@@ -430,8 +482,6 @@ const MaterialPage = () => {
                                 )}
                             </Menu>
 
-
-                            {/* Search input */}
                             <div className="w-[250px]">
                                 <TableSearch
                                     value={searchTerm}
@@ -490,7 +540,7 @@ const MaterialPage = () => {
                 onClose={() => setConfirmDialogOpen(false)}
                 onConfirm={() => {
                     if (pendingToggleRow) {
-                        handleToggleStatus(pendingToggleRow.id); // truyền đúng giá trị mới
+                        handleToggleStatus(pendingToggleRow.id);
                         setAlertMessage("Cập nhật trạng thái thành công!");
                         setShowSuccessAlert(true);
                     }

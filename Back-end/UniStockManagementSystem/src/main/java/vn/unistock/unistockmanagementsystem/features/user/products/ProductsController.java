@@ -30,12 +30,17 @@ public class ProductsController {
     private final ExcelService excelService;
 
     @GetMapping
-        public ResponseEntity<Page<ProductsDTO>> getAllProducts(
+    public ResponseEntity<Page<ProductsDTO>> getProducts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) List<Boolean> statuses,
+            @RequestParam(name = "typeIds", required = false) List<Long> typeIds
     ) {
-        return ResponseEntity.ok(productsService.getAllProducts(page, size));
+        return ResponseEntity.ok(
+                productsService.getAllProducts(page, size, search, statuses, typeIds));
     }
+
 
     @GetMapping("/{id}")
     public ResponseEntity<ProductsDTO> getProductById(@PathVariable Long id) {

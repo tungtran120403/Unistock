@@ -19,11 +19,14 @@ const usePurchaseOrder = () => {
   const [pageSize, setPageSize] = useState(10);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
+  const [loading, setLoading] = useState(false); // ✅ New loading state
 
   // Lấy danh sách đơn hàng từ API
-  const fetchPaginatedOrders = async (page = currentPage, size = pageSize, search = searchKeyword, status = selectedStatus) => {
+  const fetchPaginatedOrders = async (page = currentPage, size = pageSize, search = searchKeyword, status = selectedStatus, startDate, endDate, showLoading = true
+  ) => {
+    if (showLoading) setLoading(false);
     try {
-      const response = await fetchPurchaseOrders(page, size, search, status);
+      const response = await fetchPurchaseOrders(page, size, search, status, startDate, endDate);
       console.log("API Response:", response);
       setPurchaseOrders(response.data || []);
       setTotalPages(response.totalPages);
@@ -32,6 +35,8 @@ const usePurchaseOrder = () => {
       setPageSize(size);
     } catch (error) {
       console.error("Lỗi khi tải danh sách đơn hàng:", error);
+    } finally {
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -73,6 +78,7 @@ const usePurchaseOrder = () => {
     currentPage,
     pageSize,
     searchKeyword,
+    loading,
     setSearchKeyword,
     selectedStatus,
     setSelectedStatus,

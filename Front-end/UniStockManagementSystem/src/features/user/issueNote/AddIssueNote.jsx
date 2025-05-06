@@ -38,15 +38,18 @@ import FileUploadBox from "@/components/FileUploadBox";
 import ModalAddPartner from "./ModalAddPartner";
 import ModalChooseOrder from "./ModalChooseOrder";
 import TableSearch from "@/components/TableSearch";
-
+import CircularProgress from '@mui/material/CircularProgress';
 import { getPartnersByType } from "@/features/user/partner/partnerService";
 import { getSaleOrders, uploadPaperEvidence } from "./issueNoteService";
 import { getTotalQuantityOfMaterial } from "./issueNoteService";
 import { getTotalQuantityOfProduct } from "./issueNoteService";
 import { getProducts } from "../saleorders/saleOrdersService"; // Giả định có service này để lấy danh sách sản phẩm
 import { getWarehouseList } from "../warehouse/warehouseService";
+import { getAllActiveMaterials } from '../materials/materialService';
 
 import useIssueNote from "./useIssueNote";
+import { useNotifications } from "../notification/useNotifications";
+
 
 const OUTSOURCE_TYPE_ID = 3;
 const SUPPLIER_TYPE_ID = 2;
@@ -55,32 +58,48 @@ const SUPPLIER_TYPE_ID = 2;
 /** Gom vật tư từ danh sách orderDetails.
  *  Trả về mảng [{ materialId, materialCode?, materialName?, unitName, orderQty, exportedQty, pendingQty, inStock:[...] }]
  */
-const buildMaterialRows = async (orderDetails, orderId) => {
+const buildMaterialRows = async (materials, orderId) => {
+  console.log("[buildMaterialRows] Input materials:", JSON.stringify(materials, null, 2));
+
   const rowsMap = new Map();
 
-  for (const detail of orderDetails) {
-    if (!Array.isArray(detail.materials)) continue;
+  if (!Array.isArray(materials) || materials.length === 0) {
+    console.warn("[buildMaterialRows] Materials is empty or not an array");
+    return [];
+  }
 
-    for (const m of detail.materials) {
-      const key = m.materialId;
-      const exists = rowsMap.get(key) || {
-        id: `m-${key}`,
-        materialId: key,
-        materialCode: m.materialCode || "",
-        materialName: m.materialName || "",
-        unitName: m.unitName || "",
-        orderQuantity: 0,
-        exportedQuantity: 0,
-        pendingQuantity: 0,
-        inStock: []
-      };
-
-      exists.orderQuantity += m.requiredQuantity || 0;
-      exists.exportedQuantity += m.receivedQuantity || 0;
-      exists.pendingQuantity = exists.orderQuantity - exists.exportedQuantity;
-
-      rowsMap.set(key, exists);
+  for (const m of materials) {
+    // Kiểm tra xem material có materialId hợp lệ không
+    if (!m.materialId) {
+      console.warn("[buildMaterialRows] Skipping material with missing materialId:", JSON.stringify(m, null, 2));
+      continue;
     }
+
+    const key = m.materialId;
+    const exists = rowsMap.get(key) || {
+      id: `m-${key}`,
+      materialId: key,
+      materialCode: m.materialCode || "",
+      materialName: m.materialName || "",
+      unitName: m.unitName || "",
+      unitId: m.unitId || null,
+      orderQuantity: 0,
+      exportedQuantity: 0,
+      pendingQuantity: 0,
+      inStock: []
+    };
+
+    exists.orderQuantity += m.requiredQuantity || 0;
+    exists.exportedQuantity += m.receivedQuantity || 0;
+    exists.pendingQuantity = exists.orderQuantity - exists.exportedQuantity;
+    console.log(`[buildMaterialRows] Material: ${m.materialCode} (${m.materialId}) | Required: ${m.requiredQuantity} | Received: ${m.receivedQuantity} | Pending: ${exists.pendingQuantity}`);
+    rowsMap.set(key, exists);
+  }
+
+  // Kiểm tra nếu không có vật tư hợp lệ
+  if (rowsMap.size === 0) {
+    console.warn("[buildMaterialRows] No valid materials found");
+    return [];
   }
 
   // 👉 nạp tồn kho từng vật tư
@@ -108,11 +127,14 @@ const buildMaterialRows = async (orderDetails, orderId) => {
     return row;
   });
 
-  return Promise.all(promises);
+  const result = await Promise.all(promises);
+  console.log("[buildMaterialRows] Output rows:", JSON.stringify(result, null, 2));
+  return result;
 };
 // 🔄 END PATCH
 
 const AddIssueNote = () => {
+  const { fetchNotifications } = useNotifications();
   const navigate = useNavigate();
   const { fetchNextCode, addIssueNote, materials } = useIssueNote();
 
@@ -130,6 +152,7 @@ const AddIssueNote = () => {
   const [partnerId, setPartnerId] = useState(null);
   const [soId, setSoId] = useState(null);
   const [isSaving, setIsSaving] = useState(false); // Thêm state cho loading
+  const [loading, setLoading] = useState(true);
 
   //State hiển thị lỗi
   const [issueCategoryError, setIssueCategoryError] = useState("");
@@ -151,6 +174,9 @@ const AddIssueNote = () => {
   const [products, setProducts] = useState([]);
   const [productList, setProductList] = useState([]); // Danh sách sản phẩm
 
+  // ------------------ STATE: Danh sách sản phẩm và Nguyên vật liệu ------------------
+  const [itemList, setItemList] = useState([]);
+
   // ------------------ STATE: Danh sách NVL dự kiến nhận lại (cho Gia công) ------------------
   const [expectedReturns, setExpectedReturns] = useState([]);
   const [warehouses, setWarehouses] = useState([]); // Thêm state cho danh sách kho
@@ -158,11 +184,14 @@ const AddIssueNote = () => {
   // ------------------ Lấy mã phiếu + đặt ngày mặc định ------------------
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
         const code = await fetchNextCode();
         setIssueNoteCode(code || "");
       } catch (err) {
         console.error("Lỗi khi fetchNextCode:", err);
+      } finally {
+        setLoading(false);
       }
     })();
     if (!createdDate) {
@@ -206,6 +235,7 @@ const AddIssueNote = () => {
             address: order.address,
             contactName: order.contactName,
             orderDetails: order.orderDetails,
+            materials: order.materials,
           }));
         setOrders(mapped);
       } else {
@@ -214,6 +244,62 @@ const AddIssueNote = () => {
     } catch (error) {
       console.error("Lỗi fetchOrders:", error);
       setOrders([]);
+    }
+  };
+
+  // Hàm lọc danh sách vật tư/sản phẩm cho gia cong
+  const getAvailableMaterialsForExport = () => {
+    const selectedMaterialIds = products
+      .filter(p => p.materialId)
+      .map(p => p.materialId);
+    return materials.filter(mat => !selectedMaterialIds.includes(mat.materialId));
+  };
+
+  const getAvailableMaterialsForExpectedReturns = () => {
+    const selectedReturnIds = expectedReturns
+      .filter(p => p.materialId)
+      .map(p => p.materialId);
+    return materials.filter(mat => !selectedReturnIds.includes(mat.materialId));
+  };
+
+
+  // Hàm lọc danh sách vật tư/sản phẩm cho khac
+  const getAvailableItemsForKhac = () => {
+    const selectedItemIds = products
+      .filter(p => p.itemId)
+      .map(p => p.itemId);
+    return itemList.filter(item => !selectedItemIds.includes(item.id));
+  };
+
+  // ------------------ Lấy DS sản phẩm và vật tư------------------
+  const fetchItems = async () => {
+    try {
+      // Lấy danh sách vật tư từ API
+      const materialsData = await getAllActiveMaterials();
+      const materialsList = materialsData.map((mat) => ({
+        id: `mat-${mat.materialId}`,
+        code: mat.materialCode,
+        name: mat.materialName,
+        unitName: mat.unitName,
+        unitId: mat.unitId,
+        type: 'material',
+      }));
+
+      // Lấy danh sách sản phẩm
+      const productsList = await getProducts();
+      const mappedProducts = productsList?.content?.map((prod) => ({
+        id: `prod-${prod.productId}`,
+        code: prod.productCode,
+        name: prod.productName,
+        unitName: prod.unitName,
+        unitId: prod.unitId,
+        type: 'product',
+      })) || [];
+
+      setItemList([...materialsList, ...mappedProducts]);
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách vật tư/sản phẩm:", error);
+      setItemList([]);
     }
   };
 
@@ -264,7 +350,7 @@ const AddIssueNote = () => {
             contactName: o.contactName,
           };
         })
-        .filter((c) => c.code && c.code.toUpperCase().includes("GC"));
+        .filter((c) => c.code && c.code.toUpperCase().includes("ĐTGC"));
       setOutsources(mapped);
     } catch (err) {
       console.error("Lỗi fetchOutsources:", err);
@@ -310,8 +396,8 @@ const AddIssueNote = () => {
     }
     if (category === "Gia công") {
       fetchOutsources();
-      fetchWarehouses(); // Lấy danh sách kho cho expectedReturns
-      setExpectedReturns([]); // Reset expectedReturns khi đổi category
+      fetchWarehouses();
+      setExpectedReturns([]);
     }
     if (category === "Trả lại hàng mua") {
       fetchSuppliers();
@@ -319,13 +405,16 @@ const AddIssueNote = () => {
     if (category === "Sản xuất") {
       fetchProducts();
     }
+    if (category === "Khác") {
+      fetchItems();
+      setPartnerCode("");
+      setPartnerName("");
+      setPartnerId(null);
+      setContactName("");
+      setAddress("");
+    }
     setReferenceDocument("");
     setSoId(null);
-    setPartnerCode("");
-    setPartnerName("");
-    setPartnerId(null);
-    setContactName("");
-    setAddress("");
     setDescription("");
     setProducts([]);
     setFiles([]);
@@ -335,6 +424,7 @@ const AddIssueNote = () => {
   const handleOpenChooseOrderModal = () => setIsChooseOrderModalOpen(true);
   const handleCloseChooseOrderModal = () => setIsChooseOrderModalOpen(false);
 
+  // ------------------ Handle chọn đơn hàng ------------------
   const handleOrderSelected = async (selectedOrder) => {
     if (!selectedOrder) {
       setReferenceDocument("");
@@ -350,7 +440,7 @@ const AddIssueNote = () => {
     }
 
     setReferenceDocument(selectedOrder.orderCode);
-    setSoId(selectedOrder.id);
+    setSoId(selectedOrder.orderId || selectedOrder.id); // Changed from selectedOrder.id to selectedOrder.orderId
     setPartnerCode(selectedOrder.partnerCode);
     setPartnerName(selectedOrder.partnerName);
     setDescription(selectedOrder.orderName || "");
@@ -358,9 +448,25 @@ const AddIssueNote = () => {
     setContactName(selectedOrder.contactName || "");
 
     if (category === "Sản xuất") {
-      // 👉 Lấy danh sách vật tư theo đơn hàng
-      const materialRows = await buildMaterialRows(selectedOrder.orderDetails, selectedOrder.id);
-      console.log("Material rows for production:", materialRows);
+      // Kiểm tra materials trước khi gọi buildMaterialRows
+      if (!selectedOrder.materials || !Array.isArray(selectedOrder.materials) || selectedOrder.materials.length === 0) {
+        console.warn("[handleOrderSelected] No materials found in selected order");
+        setProducts([]);
+        setItemsError("Đơn hàng không có danh sách vật tư!");
+        handleCloseChooseOrderModal();
+        return;
+      }
+
+      // 👉 Lấy danh sách vật tư từ SalesOrder.materials
+      const materialRows = await buildMaterialRows(selectedOrder.materials, selectedOrder.orderId);
+      console.log("[handleOrderSelected] Material rows for production:", JSON.stringify(materialRows, null, 2));
+
+      if (materialRows.length === 0) {
+        setItemsError("Không tìm thấy vật tư hợp lệ trong đơn hàng!");
+      } else {
+        setItemsError("");
+      }
+
       setProducts(materialRows);
       handleCloseChooseOrderModal();
       return;
@@ -371,7 +477,7 @@ const AddIssueNote = () => {
       let inStockArr = [];
       try {
         if (detail.productId) {
-          inStockArr = await getTotalQuantityOfProduct(detail.productId, selectedOrder.id);
+          inStockArr = await getTotalQuantityOfProduct(detail.productId, selectedOrder.orderId);
         }
       } catch (err) {
         console.error("Lỗi getTotalQuantityOfProduct:", err);
@@ -460,6 +566,26 @@ const AddIssueNote = () => {
           }],
         },
       ]);
+    } else if (category === "Khác") {
+      setProducts((prev) => [
+        ...prev,
+        {
+          id: `new-${prev.length + 1}`,
+          itemId: null, // Thay vì materialId/productId, dùng itemId chung
+          itemCode: "",
+          itemName: "",
+          unitName: "",
+          unitId: null,
+          itemType: "", // Loại: material hoặc product
+          inventory: [{
+            warehouseId: null,
+            warehouseName: "",
+            quantity: 0,
+            exportQuantity: 0,
+            error: ""
+          }],
+        },
+      ]);
     }
     setItemsError("");
   };
@@ -519,8 +645,8 @@ const AddIssueNote = () => {
     if (displayed.length === 0) {
       return (
         <tr>
-          <td colSpan={category === "Bán hàng" || category === "Sản xuất" ? 11 : 8} className="text-center py-3 text-gray-500">
-            {category === "Gia công" ? "Chưa có nguyên vật liệu nào" : category === "Sản xuất" ? "Chưa có vật tư nào" : category === "Trả lại hàng mua" ? "Chưa có nguyên vật liệu nào" : "Chưa có sản phẩm nào"}
+          <td colSpan={category === "Bán hàng" || category === "Sản xuất" ? 11 : 8} className="h-[104px] px-4 py-2 text-[14px] text-center text-[#000000DE] align-middle">
+            Không có dữ liệu
           </td>
         </tr>
       );
@@ -536,15 +662,15 @@ const AddIssueNote = () => {
           const isFirstRow = whIndex === 0;
           const rowSpan = inv.length;
           return (
-            <tr key={`${nvl.id}-wh-${whIndex}`} className="border-b hover:bg-gray-50">
+            <tr key={`${nvl.id}-wh-${whIndex}`} className="border-b hover:bg-[#0000000A]">
               {isFirstRow && (
                 <>
-                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-center text-sm">
+                  <td rowSpan={rowSpan} className="px-2 py-2 text-sm text-[#000000DE] text-center w-10 border-r border-[rgba(224,224,224,1)]">
                     {currentPage * pageSize + nvlIndex + 1}
                   </td>
-                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-sm">
+                  <td rowSpan={rowSpan} className="px-2 py-2 text-sm w-60 border-r border-[rgba(224,224,224,1)]">
                     <Autocomplete
-                      options={materials || []}
+                      options={getAvailableMaterialsForExport() || []}
                       getOptionLabel={(option) =>
                         `${option.materialCode} - ${option.materialName}`
                       }
@@ -628,19 +754,19 @@ const AddIssueNote = () => {
                       </Typography>
                     )}
                   </td>
-                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-sm">
+                  <td rowSpan={rowSpan} className="px-2 py-2 text-sm w-60 border-r border-[rgba(224,224,224,1)]">
                     {nvl.materialName}
                   </td>
-                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-sm">
+                  <td rowSpan={rowSpan} className="px-2 py-2 text-sm w-28 border-r border-[rgba(224,224,224,1)]">
                     {nvl.unitName}
                   </td>
                 </>
               )}
-              <td className="px-3 py-2 border-r text-sm">
+              <td className="px-2 py-2 text-sm w-52 border-r border-[rgba(224,224,224,1)]">
                 {wh.warehouseName || " "}
               </td>
-              <td className="px-3 py-2 border-r text-sm text-right">{wh.quantity}</td>
-              <td className="px-3 py-2 border-r text-sm w-24">
+              <td className="px-2 py-2 text-sm text-center w-24 border-r border-[rgba(224,224,224,1)]">{wh.quantity}</td>
+              <td className="px-3 py-2 border-r text-sm w-40">
                 <div style={{ width: "100%" }}>
                   <TextField
                     type="number"
@@ -721,7 +847,7 @@ const AddIssueNote = () => {
                 </div>
               </td>
               {isFirstRow && (
-                <td rowSpan={rowSpan} className="px-3 py-2 text-center text-sm">
+                <td rowSpan={rowSpan} className="px-2 py-2 text-center text-sm">
                   <Tooltip title="Xóa">
                     <IconButton
                       size="small"
@@ -748,7 +874,7 @@ const AddIssueNote = () => {
             <tr key={`${mat.id}-wh-${whIndex}`} className="border-b hover:bg-gray-50">
               {isFirstRow && (
                 <>
-                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-center text-sm">
+                  <td rowSpan={rowSpan} className="px-2 py-2 text-sm text-[#000000DE] w-20 border-r border-[rgba(224,224,224,1)]">
                     {currentPage * pageSize + (matIndex + 1)}
                   </td>
                   <td rowSpan={rowSpan} className="px-3 py-2 border-r text-sm">{mat.materialCode}</td>
@@ -842,7 +968,223 @@ const AddIssueNote = () => {
           );
         });
       });
-    } else { // Bán hàng hoặc Sản xuất
+    } else if (category === "Khác") {
+      return displayed.flatMap((item, itemIndex) => {
+        const inv = item.inventory && item.inventory.length > 0
+          ? item.inventory
+          : [{ warehouseId: null, warehouseName: "", quantity: 0, exportQuantity: 0, error: "" }];
+
+        return inv.map((wh, whIndex) => {
+          const isFirstRow = whIndex === 0;
+          const rowSpan = inv.length;
+          return (
+            <tr key={`${item.id}-wh-${whIndex}`} className="border-b hover:bg-gray-50">
+              {isFirstRow && (
+                <>
+                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-center text-sm">
+                    {currentPage * pageSize + itemIndex + 1}
+                  </td>
+                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-sm">
+                    <Autocomplete
+                      options={getAvailableItemsForKhac() || []}
+                      getOptionLabel={(option) =>
+                        `${option.code} - ${option.name} (${option.type === 'material' ? 'Vật tư' : 'Sản phẩm'})`
+                      }
+                      value={itemList.find(it => it.id === item.itemId) || null}
+                      onChange={async (event, newValue) => {
+                        if (newValue) {
+                          try {
+                            // Lấy tồn kho dựa trên loại (material hoặc product)
+                            const inventoryData = newValue.type === 'material'
+                              ? await getTotalQuantityOfMaterial(newValue.id.split('-')[1])
+                              : await getTotalQuantityOfProduct(newValue.id.split('-')[1]);
+                            setProducts((prev) =>
+                              prev.map((p) => {
+                                if (p.id === item.id) {
+                                  return {
+                                    ...p,
+                                    itemId: newValue.id,
+                                    itemCode: newValue.code,
+                                    itemName: newValue.name,
+                                    unitName: newValue.unitName,
+                                    unitId: newValue.unitId,
+                                    itemType: newValue.type,
+                                    inventory: inventoryData && inventoryData.length > 0
+                                      ? inventoryData.map((i) => ({
+                                        warehouseId: i.warehouseId,
+                                        warehouseName: i.warehouseName || "",
+                                        quantity: i.quantity || 0,
+                                        exportQuantity: 0,
+                                        error: ""
+                                      }))
+                                      : [{
+                                        warehouseId: null,
+                                        warehouseName: " ",
+                                        quantity: 0,
+                                        exportQuantity: 0,
+                                        error: ""
+                                      }]
+                                  };
+                                }
+                                return p;
+                              })
+                            );
+                          } catch (error) {
+                            console.error("Lỗi khi lấy tồn kho:", error);
+                          }
+                        } else {
+                          setProducts((prev) =>
+                            prev.map((p) => {
+                              if (p.id === item.id) {
+                                return {
+                                  ...p,
+                                  itemId: null,
+                                  itemCode: "",
+                                  itemName: "",
+                                  unitName: "",
+                                  unitId: null,
+                                  itemType: "",
+                                  inventory: [{
+                                    warehouseId: null,
+                                    warehouseName: " ",
+                                    quantity: 0,
+                                    exportQuantity: 0,
+                                    error: ""
+                                  }]
+                                };
+                              }
+                              return p;
+                            })
+                          );
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          error={!!wh.error}
+                          placeholder="Chọn vật tư/sản phẩm"
+                          variant="outlined"
+                          size="small"
+                          color="success"
+                        />
+                      )}
+                    />
+                    {wh.error && (
+                      <Typography className="text-xs text-red-500 mt-1">
+                        {wh.error}
+                      </Typography>
+                    )}
+                  </td>
+                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-sm">
+                    {item.itemName}
+                  </td>
+                  <td rowSpan={rowSpan} className="px-3 py-2 border-r text-sm">
+                    {item.unitName}
+                  </td>
+                </>
+              )}
+              <td className="px-3 py-2 border-r text-sm">
+                {wh.warehouseName || " "}
+              </td>
+              <td className="px-3 py-2 border-r text-sm text-right">{wh.quantity}</td>
+              <td className="px-3 py-2 border-r text-sm w-24">
+                <div style={{ width: "100%" }}>
+                  <TextField
+                    type="number"
+                    size="small"
+                    color="success"
+                    error={!!wh.error}
+                    value={wh.exportQuantity}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      const maxAllowed = wh.quantity;
+                      if (val > maxAllowed) {
+                        setProducts((prev) =>
+                          prev.map((p) => {
+                            if (p.id === item.id) {
+                              const newInv = p.inventory.map((invItem, i) => {
+                                if (i === whIndex) {
+                                  return {
+                                    ...invItem,
+                                    error: `SL xuất không được vượt quá tồn kho (${maxAllowed}).`
+                                  };
+                                }
+                                return invItem;
+                              });
+                              return { ...p, inventory: newInv };
+                            }
+                            return p;
+                          })
+                        );
+                        return;
+                      }
+                      if (val <= 0) {
+                        setProducts((prev) =>
+                          prev.map((p) => {
+                            if (p.id === item.id) {
+                              const newInv = p.inventory.map((invItem, i) => {
+                                if (i === whIndex) {
+                                  return {
+                                    ...invItem,
+                                    error: "Số lượng phải lớn hơn 0!"
+                                  };
+                                }
+                                return invItem;
+                              });
+                              return { ...p, inventory: newInv };
+                            }
+                            return p;
+                          })
+                        );
+                        return;
+                      }
+                      setProducts((prev) =>
+                        prev.map((p) => {
+                          if (p.id === item.id) {
+                            const newInv = p.inventory.map((invItem, i) => {
+                              if (i === whIndex) {
+                                return {
+                                  ...invItem,
+                                  exportQuantity: val,
+                                  error: ""
+                                };
+                              }
+                              return invItem;
+                            });
+                            return { ...p, inventory: newInv };
+                          }
+                          return p;
+                        })
+                      );
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                  {wh.error && (
+                    <Typography className="text-xs text-red-500 mt-1">
+                      {wh.error}
+                    </Typography>
+                  )}
+                </div>
+              </td>
+              {isFirstRow && (
+                <td rowSpan={rowSpan} className="px-3 py-2 text-center text-sm">
+                  <Tooltip title="Xóa">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleDeleteRow(item.id)}
+                    >
+                      <HighlightOffRounded />
+                    </IconButton>
+                  </Tooltip>
+                </td>
+              )}
+            </tr>
+          );
+        });
+      });
+    } else { // Bán hàng
       return displayed.flatMap((prod, prodIndex) => {
         return (prod.inStock || []).map((wh, whIndex) => {
           const isFirstRow = whIndex === 0;
@@ -942,58 +1284,6 @@ const AddIssueNote = () => {
                     </Typography>
                   )}
                 </div>
-                {/* <div>
-                  <input
-                    type="number"
-                    className="border p-1 text-right w-[60px]"
-                    value={wh.exportQuantity || 0}
-                    max={maxExport}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      if (maxExport !== undefined && val > maxExport) {
-                        setProducts((prev) =>
-                          prev.map((p) => {
-                            if (p.id === prod.id) {
-                              const newInStock = p.inStock.map((ins, i) => {
-                                if (i === whIndex) {
-                                  return {
-                                    ...ins,
-                                    error: `Số lượng xuất không được vượt quá Tồn kho (${wh.quantity}) và SL còn phải xuất (${prod.pendingQuantity}).`
-                                  };
-                                }
-                                return ins;
-                              });
-                              return { ...p, inStock: newInStock };
-                            }
-                            return p;
-                          })
-                        );
-                        return;
-                      }
-                      setProducts((prev) =>
-                        prev.map((p) => {
-                          if (p.id === prod.id) {
-                            const newInStock = p.inStock.map((ins, i) => {
-                              if (i === whIndex) {
-                                return {
-                                  ...ins,
-                                  exportQuantity: val,
-                                  error: ""
-                                };
-                              }
-                              return ins;
-                            });
-                            return { ...p, inStock: newInStock };
-                          }
-                          return p;
-                        })
-                      );
-                    }}
-                  />
-                  {wh.error && (
-                    <div className="text-red-500 text-xs mt-1">{wh.error}</div>
-                  )}
-                </div> */}
               </td>
               {isFirstRow && (
                 <td rowSpan={rowSpan} className="px-3 py-2 text-center text-sm">
@@ -1020,8 +1310,8 @@ const AddIssueNote = () => {
     if (expectedReturns.length === 0) {
       return (
         <tr>
-          <td colSpan={7} className="text-center py-3 text-gray-500">
-            Chưa có nguyên vật liệu nào
+          <td colSpan={7} className="h-[104px] px-4 py-2 text-[14px] text-center text-[#000000DE] align-middle">
+            Không có dữ liệu
           </td>
         </tr>
       );
@@ -1029,10 +1319,10 @@ const AddIssueNote = () => {
 
     return expectedReturns.map((item, index) => (
       <tr key={item.id} className="border-b hover:bg-gray-50">
-        <td className="px-3 py-2 border-r text-center text-sm">{index + 1}</td>
-        <td className="px-3 py-2 border-r text-sm">
+        <td className="px-2 py-2 text-sm text-[#000000DE] text-center w-10 border-r border-[rgba(224,224,224,1)]">{index + 1}</td>
+        <td className="px-2 py-2 text-sm w-72 border-r border-[rgba(224,224,224,1)]">
           <Autocomplete
-            options={materials || []}
+            options={getAvailableMaterialsForExpectedReturns() || []}
             getOptionLabel={(option) =>
               `${option.materialCode} - ${option.materialName}`
             }
@@ -1068,27 +1358,10 @@ const AddIssueNote = () => {
             )}
           />
         </td>
-        <td className="px-3 py-2 border-r text-sm">{item.materialName}</td>
-        <td className="px-3 py-2 border-r text-sm">{item.unitName}</td>
-        <td className="px-3 py-2 border-r text-sm w-24">
+        <td className="px-4 py-2 text-sm w-72 border-r border-[rgba(224,224,224,1)]">{item.materialName}</td>
+        <td className="px-4 py-2 text-sm w-36 border-r border-[rgba(224,224,224,1)]">{item.unitName}</td>
+        <td className="px-4 py-2 text-sm w-44 border-r border-[rgba(224,224,224,1)]">
           <div>
-            {/* <input
-              type="number"
-              className={`border p-1 text-right w-[60px] ${item.error && item.expectedQuantity <= 0 ? "border-red-500" : ""}`}
-              value={item.expectedQuantity || 0}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                const error = val <= 0 ? "Số lượng phải lớn hơn 0" : "";
-                setExpectedReturns((prev) =>
-                  prev.map((p) => {
-                    if (p.id === item.id) {
-                      return { ...p, expectedQuantity: val, error };
-                    }
-                    return p;
-                  })
-                );
-              }}
-            /> */}
             <TextField
               type="number"
               size="small"
@@ -1115,7 +1388,7 @@ const AddIssueNote = () => {
             )}
           </div>
         </td>
-        <td className="px-3 py-2 text-center text-sm">
+        <td className="px-4 py-2 text-center text-sm">
           <Tooltip title="Xóa">
             <IconButton
               size="small"
@@ -1166,7 +1439,7 @@ const AddIssueNote = () => {
         return items.some((item) => item.exportQuantity > item.quantity);
       });
       if (isExportExceed) {
-        alert("Số lượng xuất không được vượt quá số lượng tồn kho!");
+        console.log("Số lượng xuất không được vượt quá số lượng tồn kho!");
         return;
       }
 
@@ -1193,9 +1466,26 @@ const AddIssueNote = () => {
               materialId: row.materialId,
               quantity: row.expectedQuantity,
               unitId: row.unitId || 1,
-              received_quantity: 0, // Set default to 0 to satisfy NOT NULL constraint
+              received_quantity: 0,
             }));
         }
+      } else if (category === "Khác") {
+        details = products
+          .filter((row) => row.itemId && row.inventory?.length > 0)
+          .flatMap((row) =>
+            row.inventory
+              .filter((wh) => wh.warehouseId && wh.exportQuantity > 0)
+              .map((wh) => {
+                const itemIdParts = row.itemId.split('-');
+                const id = itemIdParts[1];
+                return {
+                  warehouseId: wh.warehouseId,
+                  [row.itemType === "material" ? "materialId" : "productId"]: id,
+                  quantity: wh.exportQuantity,
+                  unitId: row.unitId || 1,
+                };
+              })
+          );
       } else { // Bán hàng hoặc Sản xuất
         details = products
           .filter((row) => (category === "Sản xuất" ? row.materialId : row.productId) && row.inStock?.length > 0)
@@ -1233,6 +1523,7 @@ const AddIssueNote = () => {
 
       const result = await addIssueNote(payload);
       if (result) {
+        window.dispatchEvent(new Event("refreshNotifications"));
         if (files && files.length > 0) {
           try {
             const uploadResult = await uploadPaperEvidence(
@@ -1261,11 +1552,33 @@ const AddIssueNote = () => {
           errorMessage = error.response.data.message || "Lỗi server. Vui lòng thử lại sau.";
         }
       }
-      alert(errorMessage);
+      console.log(errorMessage);
     } finally {
       setIsSaving(false);
     }
   };
+
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1313,6 +1626,7 @@ const AddIssueNote = () => {
                 <MenuItem value="Sản xuất">Sản xuất</MenuItem>
                 <MenuItem value="Gia công">Gia công</MenuItem>
                 <MenuItem value="Trả lại hàng mua">Trả lại hàng mua</MenuItem>
+                <MenuItem value="Khác">Khác</MenuItem>
               </TextField>
 
               {issueCategoryError && (
@@ -1400,10 +1714,15 @@ const AddIssueNote = () => {
                     orders.find((o) => o.orderCode === referenceDocument) ||
                     null
                   }
-                  onChange={(event, selectedOrder) => {
-                    if (selectedOrder) {
-                      handleOrderSelected(selectedOrder);
-                      setReferenceDocumentError("");
+                  onChange={async (event, newValue) => {
+                    if (newValue) {
+                      await handleOrderSelected(newValue); 
+                      console.log("Selected order:", newValue);
+                    } else {
+                      // reset nếu bỏ chọn
+                      setReferenceDocument("");
+                      setSoId(null);
+                      setProducts([]);
                     }
                   }}
                   renderInput={(params) => (
@@ -1579,7 +1898,7 @@ const AddIssueNote = () => {
                         ...params.InputProps,
                         endAdornment: (
                           <div className="flex items-center space-x-1">
-                            <IconButton
+                            {/* <IconButton
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenCreatePartnerPopup();
@@ -1587,7 +1906,7 @@ const AddIssueNote = () => {
                               size="small"
                             >
                               <FaPlus fontSize="small" />
-                            </IconButton>
+                            </IconButton> */}
                             {partnerCode && (
                               <IconButton
                                 onClick={(e) => {
@@ -1850,40 +2169,40 @@ const AddIssueNote = () => {
             </div>
           </div>
 
-          {category === "Gia công" || category === "Trả lại hàng mua" ? (
-            <div className="border rounded mb-4 overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-gray-50 border-b">
+          {category === "Gia công" || category === "Trả lại hàng mua" || category === "Khác" ? (
+            <div className="border border-gray-200 rounded mb-4 overflow-x-auto border-[rgba(224,224,224,1)]">
+              <table className="w-full min-w-max text-left border-collapse border-[rgba(224,224,224,1)]">
+                <thead className="bg-[#f5f5f5] border-b border-[rgba(224,224,224,1)]">
                   <tr>
-                    <th className="px-3 py-2 border-r">STT</th>
-                    <th className="px-3 py-2 border-r">Mã NVL</th>
-                    <th className="px-3 py-2 border-r">Tên NVL</th>
-                    <th className="px-3 py-2 border-r">Đơn vị</th>
-                    <th className="px-3 py-2 border-r">Kho</th>
-                    <th className="px-3 py-2 border-r">Tồn kho</th>
-                    <th className="px-3 py-2 border-r">SL xuất</th>
-                    <th className="px-3 py-2">Thao tác</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">STT</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">{category === "Khác" ? "Mã vật tư/sản phẩm" : "Mã NVL"}</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">{category === "Khác" ? "Tên vật tư/sản phẩm" : "Tên NVL"}</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Đơn vị</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Kho</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Tồn kho</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">SL xuất</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>{renderUnifiedTableBody()}</tbody>
               </table>
             </div>
           ) : (
-            <div className="border rounded mb-4 overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-gray-50 border-b">
+            <div className="border border-gray-200 rounded mb-4 overflow-x-auto border-[rgba(224,224,224,1)]">
+              <table className="w-full min-w-max text-left border-collapse border-[rgba(224,224,224,1)]">
+                <thead className="bg-[#f5f5f5] border-b border-[rgba(224,224,224,1)]">
                   <tr>
-                    <th className="px-3 py-2 border-r">STT</th>
-                    <th className="px-3 py-2 border-r">Mã hàng</th>
-                    <th className="px-3 py-2 border-r">Tên hàng</th>
-                    <th className="px-3 py-2 border-r">Đơn vị</th>
-                    <th className="px-3 py-2 border-r">SL Đặt</th>
-                    <th className="px-3 py-2 border-r">SL đã xuất</th>
-                    <th className="px-3 py-2 border-r">SL còn phải xuất</th>
-                    <th className="px-3 py-2 border-r">Kho</th>
-                    <th className="px-3 py-2 border-r">Tồn kho</th>
-                    <th className="px-3 py-2 border-r">SL xuất</th>
-                    <th className="px-3 py-2">Thao tác</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">STT</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Mã hàng</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Tên hàng</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Đơn vị</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">SL Đặt</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">SL đã xuất</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">SL còn phải xuất</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Kho</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Tồn kho</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">SL xuất</th>
+                    <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>{renderUnifiedTableBody()}</tbody>
@@ -1928,16 +2247,16 @@ const AddIssueNote = () => {
                 <ListBulletIcon className="h-5 w-5 mr-2" />
                 Danh sách NVL dự kiến nhận lại
               </Typography>
-              <div className="border rounded mb-4 overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead className="bg-gray-50 border-b">
+              <div className="border border-gray-200 rounded mb-4 overflow-x-auto border-[rgba(224,224,224,1)]">
+                <table className="w-full min-w-max text-left border-collapse border-[rgba(224,224,224,1)]">
+                  <thead className="bg-[#f5f5f5] border-b border-[rgba(224,224,224,1)]">
                     <tr>
-                      <th className="px-3 py-2 border-r">STT</th>
-                      <th className="px-3 py-2 border-r">Mã NVL</th>
-                      <th className="px-3 py-2 border-r">Tên NVL</th>
-                      <th className="px-3 py-2 border-r">Đơn vị</th>
-                      <th className="px-3 py-2 border-r">SL nhận</th>
-                      <th className="px-3 py-2">Thao tác</th>
+                      <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">STT</th>
+                      <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Mã NVL</th>
+                      <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Tên NVL</th>
+                      <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">Đơn vị</th>
+                      <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)]">SL nhận</th>
+                      <th className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE]">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>{renderExpectedReturnsTable()}</tbody>

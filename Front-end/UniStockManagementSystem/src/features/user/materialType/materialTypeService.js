@@ -7,20 +7,24 @@ const authHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-export const fetchMaterialTypes = async (page = 0, size = 10) => {
+export const fetchMaterialTypes = async ({ page = 0, size = 10, search, statuses } = {}) => {
   try {
-    const response = await axios.get(API_URL, {
-      headers: authHeader(),
-      params: {
-        page,
-        size,
-      },
-    });
-    console.log("📌 [fetchMaterialTypes] API Response:", response.data);
-    return response.data;
+      const params = new URLSearchParams();
+      params.append("page", page);
+      params.append("size", size);
+      if (search) params.append("search", search);
+      if (Array.isArray(statuses) && statuses.length === 1) {
+          params.append("status", statuses[0]);
+      }
+
+      const response = await axios.get(`${API_URL}?${params.toString()}`, {
+          headers: authHeader(),
+      });
+      console.log("📌 [fetchMaterialTypes] API Response:", response.data);
+      return response.data;
   } catch (error) {
-    console.error("❌ Lỗi khi lấy danh sách loại nguyên liệu:", error.response?.data || error.message);
-    throw error;
+      console.error("❌ Lỗi khi lấy danh sách loại nguyên liệu:", error.response?.data || error.message);
+      throw error;
   }
 };
 

@@ -22,10 +22,13 @@ public class MaterialTypeController {
     @GetMapping
     public ResponseEntity<Page<MaterialTypeDTO>> getAllMaterialTypes(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean status
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(materialTypeService.getAllMaterialTypes(pageable));
+        Page<MaterialTypeDTO> materialTypes = materialTypeService.getAllMaterialTypes(pageable, search, status);
+        return ResponseEntity.ok(materialTypes);
     }
 
     @GetMapping("/{id}")

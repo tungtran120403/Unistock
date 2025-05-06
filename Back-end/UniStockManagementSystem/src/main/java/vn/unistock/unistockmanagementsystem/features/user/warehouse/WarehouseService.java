@@ -87,7 +87,7 @@ public class WarehouseService {
         if (!isActive) {
             boolean hasStock = inventoryRepository.existsStockInWarehouse(id);
             if (hasStock) {
-                throw new RuntimeException("Thay đổi trạng thái kho không thành công. Không thể dừng hoạt động kho này khi vẫn còn hàng hóa lưu kho.");
+                throw new RuntimeException("Không thể dừng hoạt động do vẫn còn hàng hóa lưu kho.");
             }
         }
         warehouse.setIsActive(isActive);
@@ -140,5 +140,4 @@ public class WarehouseService {
         result.put("codeExists", codeExists);
         return result;
     }
-
 }

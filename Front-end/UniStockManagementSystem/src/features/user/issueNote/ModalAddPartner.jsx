@@ -91,7 +91,7 @@ const ModalAddPartner = ({ onClose, onSuccess, category }) => {
                     setErrorPartnerName("Tên đối tác đã tồn tại.");
                 }
             } else {
-                alert("Lỗi khi tạo đối tác! Vui lòng thử lại.");
+                console.log("Lỗi khi tạo đối tác! Vui lòng thử lại.");
             }
         }
     };

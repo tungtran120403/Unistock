@@ -25,28 +25,9 @@ import { createPurchaseRequest } from "./PurchaseRequestService";
 import PageHeader from '@/components/PageHeader';
 import TableSearch from '@/components/TableSearch';
 import { getAllMaterials } from "@/features/user/materials/materialService";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const SUPPLIER_TYPE_ID = 2;
-
-const customStyles = {
-  control: (provided, state) => ({
-    ...provided,
-    minWidth: 200,
-    borderColor: state.isFocused ? "black" : provided.borderColor,
-    boxShadow: state.isFocused ? "0 0 0 1px black" : "none",
-    "&:hover": { borderColor: "black" },
-  }),
-  option: (provided) => ({
-    ...provided,
-    color: "black",
-  }),
-  clearIndicator: (base) => ({
-    ...base,
-    cursor: 'pointer',
-    padding: '4px',
-    ':hover': { color: '#ef4444' }
-  }),
-};
 
 const authHeader = () => {
   const token = localStorage.getItem("token");
@@ -67,6 +48,7 @@ const AddPurchaseRequestPage = () => {
   const [items, setItems] = useState(initialItems || []);
   const [nextId, setNextId] = useState((initialItems?.length || 0) + 1);
   const [loading, setLoading] = useState(false);
+  const [loadingNextCode, setLoadingNextCode] = useState(false);
   const [tableSearchQuery, setTableSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(5);
@@ -82,7 +64,7 @@ const AddPurchaseRequestPage = () => {
 
   useEffect(() => {
     const fetchNextCode = async () => {
-      setLoading(true);
+      setLoadingNextCode(true);
       try {
         const code = await getNextCode();
         setRequestCode(code);
@@ -90,7 +72,7 @@ const AddPurchaseRequestPage = () => {
         console.error("Lỗi khi lấy mã phiếu:", error);
         setErrors({ message: "Không thể lấy mã phiếu. Vui lòng thử lại!" });
       } finally {
-        setLoading(false);
+        setLoadingNextCode(false);
       }
     };
     fetchNextCode();
@@ -208,10 +190,10 @@ const AddPurchaseRequestPage = () => {
       prev.map((item, idx) =>
         idx === index
           ? {
-              ...item,
-              supplierId: selectedOption?.value || "",
-              supplierName: selectedOption?.name || "",
-            }
+            ...item,
+            supplierId: selectedOption?.value || "",
+            supplierName: selectedOption?.name || "",
+          }
           : item
       )
     );
@@ -223,14 +205,14 @@ const AddPurchaseRequestPage = () => {
         prev.map((item, idx) =>
           idx === index
             ? {
-                ...item,
-                materialId: "",
-                materialCode: "",
-                materialName: "",
-                unitName: "",
-                supplierId: "",
-                supplierName: "",
-              }
+              ...item,
+              materialId: "",
+              materialCode: "",
+              materialName: "",
+              unitName: "",
+              supplierId: "",
+              supplierName: "",
+            }
             : item
         )
       );
@@ -247,14 +229,14 @@ const AddPurchaseRequestPage = () => {
       prev.map((item, idx) =>
         idx === index
           ? {
-              ...item,
-              materialId: material.materialId,
-              materialCode: material.materialCode,
-              materialName: material.materialName,
-              unitName: material.unitName,
-              supplierId: "",
-              supplierName: "",
-            }
+            ...item,
+            materialId: material.materialId,
+            materialCode: material.materialCode,
+            materialName: material.materialName,
+            unitName: material.unitName,
+            supplierId: "",
+            supplierName: "",
+          }
           : item
       )
     );
@@ -281,10 +263,10 @@ const AddPurchaseRequestPage = () => {
           prev.map((item, idx) =>
             idx === index
               ? {
-                  ...item,
-                  supplierId: mappedSuppliers[0].value,
-                  supplierName: mappedSuppliers[0].name,
-                }
+                ...item,
+                supplierId: mappedSuppliers[0].value,
+                supplierName: mappedSuppliers[0].name,
+              }
               : item
           )
         );
@@ -316,7 +298,7 @@ const AddPurchaseRequestPage = () => {
     if (loading) return;
 
     if (quantityValidationError) {
-      alert(quantityValidationError);
+      setQuantityValidationError(quantityValidationError);
       return;
     }
 
@@ -422,10 +404,35 @@ const AddPurchaseRequestPage = () => {
     setCurrentPage(selectedItem.selected);
   };
 
-  const getAvailableMaterials = () => {
-    const selectedMaterialIds = items.map((item) => item.materialId).filter(Boolean);
+  const getAvailableMaterials = (currentMaterialId) => {
+    const selectedMaterialIds = items
+      .map((item) => item.materialId)
+      .filter((id) => id && id !== currentMaterialId);
     return materials.filter((m) => !selectedMaterialIds.includes(m.materialId));
   };
+
+
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loadingNextCode) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
@@ -574,7 +581,7 @@ const AddPurchaseRequestPage = () => {
                   {["STT", "Mã vật tư", "Tên vật tư", "Nhà cung cấp", "Đơn vị", "Số lượng", "Thao tác"].map((head) => (
                     <th
                       key={head}
-                      className="px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)] last:border-r-0"
+                      className="bg-[#f5f5f5] h-[40px] px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)] last:border-r-0"
                     >
                       {head}
                     </th>
@@ -593,7 +600,7 @@ const AddPurchaseRequestPage = () => {
                           item.materialCode
                         ) : (
                           <Autocomplete
-                            options={materials}
+                          options={getAvailableMaterials(item.materialId)}
                             size="small"
                             getOptionLabel={(option) => `${option.materialCode} - ${option.materialName}`}
                             value={
@@ -671,8 +678,8 @@ const AddPurchaseRequestPage = () => {
                               value={
                                 item.supplierId
                                   ? materialSuppliers[item.materialId].find(
-                                      (s) => s.value === item.supplierId
-                                    ) || null
+                                    (s) => s.value === item.supplierId
+                                  ) || null
                                   : null
                               }
                               onChange={(event, selected) => {
@@ -717,8 +724,8 @@ const AddPurchaseRequestPage = () => {
                             value={
                               item.supplierId
                                 ? (materialSuppliers[item.materialId] || suppliers).find(
-                                    (s) => s.value === item.supplierId
-                                  ) || null
+                                  (s) => s.value === item.supplierId
+                                ) || null
                                 : null
                             }
                             onChange={(event, selected) => {
@@ -783,6 +790,7 @@ const AddPurchaseRequestPage = () => {
                             color="success"
                             hiddenLabel
                             placeholder="0"
+                            error={Boolean(quantityErrors[currentPage * pageSize + index])}
                             sx={{
                               '& .MuiInputBase-root.Mui-disabled': {
                                 bgcolor: '#eeeeee',
@@ -814,8 +822,8 @@ const AddPurchaseRequestPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-2 py-2 text-center text-gray-500">
-                      Chưa có dòng nào được thêm
+                    <td colSpan={7} className="h-[104px] px-4 py-2 text-[14px] text-center text-[#000000DE] align-middle">
+                      Không có dữ liệu
                     </td>
                   </tr>
                 )}

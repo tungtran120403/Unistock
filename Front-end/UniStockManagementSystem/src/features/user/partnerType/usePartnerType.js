@@ -5,8 +5,10 @@ const usePartnerType = () => {
   const [partnerTypes, setPartnerTypes] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const fetchPartnerTypes = useCallback(async (page = 0, size = 10) => {
+    setLoading(true)
     try {
       const data = await getPartnerTypes(page, size);
 
@@ -29,6 +31,8 @@ const usePartnerType = () => {
       setTotalPages(1);
       setTotalElements(0);
       console.error("❌ Failed to fetch partner types:", error.message);
+    } finally {
+      setLoading(false)
     }
   }, []);
 
@@ -57,6 +61,7 @@ const usePartnerType = () => {
     toggleStatus,
     totalPages,
     totalElements,
+    loading,
   };
 };
 

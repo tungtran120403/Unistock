@@ -5,8 +5,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import vn.unistock.unistockmanagementsystem.entities.PurchaseRequest;
+
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/unistock/user/purchase-requests")
@@ -15,14 +22,25 @@ public class PurchaseRequestController {
     private final PurchaseRequestService purchaseRequestService;
 
     @GetMapping
-    public ResponseEntity<Page<PurchaseRequestDTO>> getAllPurchaseRequests(
+    public ResponseEntity<Map<String, Object>> getAllPurchaseRequests(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "purchaseRequestId"));
-        Page<PurchaseRequestDTO> requests = purchaseRequestService.getAllPurchaseRequests(pageable);
-        return ResponseEntity.ok(requests);
-    }
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) List<PurchaseRequest.RequestStatus> statuses
+    ) {
+        Page<PurchaseRequestDTO> requests = purchaseRequestService.getFilteredPurchaseRequests(
+                page, size, search, startDate, endDate, statuses
+        );
 
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", requests.getContent());
+        response.put("totalPages", requests.getTotalPages());
+        response.put("totalElements", requests.getTotalElements());
+
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/next-code")
     public ResponseEntity<String> getNextRequestCode() {

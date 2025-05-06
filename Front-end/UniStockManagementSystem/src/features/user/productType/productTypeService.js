@@ -7,14 +7,23 @@ const authHeader = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-export const fetchProductTypes = async (page = 0, size = 10) => {
+export const fetchProductTypes = async ({ page = 0, size = 10, search, statuses } = {}) => {
     try {
-        const response = await axios.get(API_URL, {
+        const params = new URLSearchParams();
+        params.append("page", page);
+        params.append("size", size);
+        if (search) params.append("search", search);
+        
+        // Sửa lỗi: Xử lý tham số statuses đúng cách
+        if (Array.isArray(statuses)) {
+            if (statuses.length === 1) {
+                params.append("status", statuses[0]);
+            }
+            // Nếu cần hỗ trợ nhiều trạng thái, có thể thêm xử lý tùy theo API backend
+        }
+
+        const response = await axios.get(`${API_URL}?${params.toString()}`, {
             headers: authHeader(),
-            params: {
-                page,
-                size,
-            },
         });
         console.log("📌 [fetchProductTypes] API Response:", response.data);
         return response.data;

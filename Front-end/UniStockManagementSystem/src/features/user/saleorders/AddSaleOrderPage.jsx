@@ -273,7 +273,7 @@ const AddSaleOrderPage = () => {
       });
     } catch (error) {
       console.error("Lỗi khi lưu đơn hàng:", error);
-      alert("Lỗi khi lưu đơn hàng. Vui lòng thử lại!");
+      console.log("Lỗi khi lưu đơn hàng. Vui lòng thử lại!");
     }
   };
 
@@ -613,7 +613,7 @@ const AddSaleOrderPage = () => {
                   {["STT", "Mã hàng", "Tên hàng", "Đơn vị", "Số lượng", "Thao tác"].map((head) => (
                     <th
                       key={head}
-                      className="px-4 py-2 text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)] last:border-r-0"
+                      className="bg-[#f5f5f5] px-4 py-2 h-[40px] text-sm font-medium text-[#000000DE] border-r border-[rgba(224,224,224,1)] last:border-r-0"
                     >
                       {head}
                     </th>
@@ -664,7 +664,7 @@ const AddSaleOrderPage = () => {
                       <td className="px-4 py-2 text-sm w-40 border-r border-[rgba(224,224,224,1)]">
                         {item.unitName}
                       </td>
-                      <td className="px-4 py-2 text-sm w-40 border-r border-[rgba(224,224,224,1)]">
+                      <td className="px-4 py-2 text-sm w-44 border-r border-[rgba(224,224,224,1)]">
                         <TextField
                           type="number"
                           size="small"
@@ -679,6 +679,7 @@ const AddSaleOrderPage = () => {
                           color="success"
                           hiddenLabel
                           placeholder="0"
+                          error={!!itemsErrors[item.id]?.quantityError}
                         />
                         {itemsErrors[item.id] && itemsErrors[item.id].quantityError && (
                           <Typography color="red" className="text-xs mt-1">
@@ -704,8 +705,8 @@ const AddSaleOrderPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-4 py-2 text-center text-gray-500">
-                      {items.length === 0 ? "Chưa có sản phẩm nào" : "Không tìm thấy kết quả phù hợp"}
+                    <td colSpan={6} className="h-[104px] px-4 py-2 text-[14px] text-center text-[#000000DE] align-middle">
+                      {items.length === 0 ? "Không có dữ liệu" : "Không tìm thấy kết quả phù hợp"}
                     </td>
                   </tr>
                 )}

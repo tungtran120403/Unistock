@@ -6,9 +6,8 @@ import {
   DialogFooter,
   Typography,
   Button,
-  IconButton,
 } from "@material-tailwind/react";
-import { TextField, Button as MuiButton, Divider, FormControl, OutlinedInput, IconButton as MuiIconButton } from "@mui/material";
+import { TextField, Button as MuiButton, Divider, FormControl, OutlinedInput, IconButton } from "@mui/material";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
@@ -57,6 +56,8 @@ const ChangePasswordModal = ({
   const handleSave = async () => {
     console.log("handleSave invoked");
 
+    let isValid = true;
+
     if (!validatePassword()) {
       console.log("Validation failed");
       return;
@@ -65,31 +66,35 @@ const ChangePasswordModal = ({
     if (newPassword !== confirmPassword) {
       console.log("Passwords do not match");
       setErrorConfirmPassword("Mật khẩu không trùng khớp.");
-      return;
+      isValid = false;
     }
 
     const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!regex.test(newPassword)) {
       console.log("Password does not meet requirements");
       setErrorNewPassword("Mật khẩu phải có ít nhất 8 ký tự, gồm cả số và chữ!");
-      return;
+      isValid = false;
     }
-
-    await onSave(); // Gọi onSave (handleChangePassword từ useProfile.js)
+    if (isValid) {
+      await onSave(); // Gọi onSave (handleChangePassword từ useProfile.js)
+    }
   };
 
   const handleClose = () => {
-    resetPasswordForm();
+    setErrorCurrentPassword(null);
+    setErrorNewPassword(null);
+    setErrorConfirmPassword(null);
+    resetPasswordForm(); // Reset form khi thành công
     onClose();
   };
 
   return (
-    <Dialog open={open} handler={onClose} size="sm" className="px-4 py-2">
+    <Dialog open={open} handler={handleClose} size="sm" className="px-4 py-2">
       <DialogHeader className="flex justify-between items-center pb-2">
         <Typography variant="h4" color="blue-gray">
           Đổi mật khẩu
         </Typography>
-        <IconButton size="sm" variant="text" onClick={onClose}>
+        <IconButton size="small" variant="text" onClick={handleClose}>
           <XMarkIcon className="h-5 w-5 stroke-2" />
         </IconButton>
       </DialogHeader>
@@ -172,7 +177,7 @@ const ChangePasswordModal = ({
         </div>
       </DialogBody>
       <DialogFooter className="pt-0">
-        <MuiButton size="medium" color="error" variant="outlined" onClick={onClose}>
+        <MuiButton size="medium" color="error" variant="outlined" onClick={handleClose}>
           Hủy
         </MuiButton>
         <Button

@@ -96,8 +96,8 @@ public class PartnerService {
             throw new IllegalArgumentException("NO_PARTNER_TYPE");
         }
 
-        if (partnerRepository.existsByPartnerNameAndPartnerId(
-                partnerDTO.getPartnerName(), partnerDTO.getPartnerId())) {
+        if (!existingPartner.getPartnerName().equals(partnerDTO.getPartnerName()) &&
+           partnerRepository.existsByPartnerName(partnerDTO.getPartnerName())) {
             throw new IllegalArgumentException("DUPLICATE_NAME");
         }
 

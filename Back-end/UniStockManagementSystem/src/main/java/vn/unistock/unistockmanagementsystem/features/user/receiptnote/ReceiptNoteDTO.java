@@ -30,4 +30,5 @@ public class ReceiptNoteDTO {
     private String createdByEmail;
     private String poCode;
     private String ginCode;
+    private Long ginId;
 }

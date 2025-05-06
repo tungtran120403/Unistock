@@ -52,8 +52,8 @@ ORDER BY n.issueDate DESC
 """)
     Page<IssueNoteReportDTO> getFilteredExportReport(
             @org.springframework.lang.Nullable String search,
-            @org.springframework.lang.Nullable java.time.LocalDate startDate,
-            @org.springframework.lang.Nullable java.time.LocalDate endDate,
+            @org.springframework.lang.Nullable java.time.LocalDateTime startDate,
+            @org.springframework.lang.Nullable java.time.LocalDateTime endDate,
             @org.springframework.lang.Nullable String itemType,
             @org.springframework.lang.Nullable Double minQuantity,
             @org.springframework.lang.Nullable Double maxQuantity,

@@ -9,15 +9,254 @@ import {
   addRole,
 } from "./roleService";
 
-const API_TO_FE_KEY   = {
+// Thêm ánh xạ từ PermissionHierarchy để kiểm tra quyền
+const PERMISSION_HIERARCHY = {
+  viewProduct: ["getProducts", "getProductById", "getMaterialsByProduct",
+     "getAllProductTypes", "getActiveMaterials", "getAllMaterials", "getAllMaterialTypes"],
+  manageProduct: [
+    "getProducts",
+    "getProductById",
+    "getMaterialsByProduct",
+    "getAllProductTypes",
+    "getActiveMaterials",
+    "getAllMaterials",
+    "getAllMaterialTypes",
+    "updateProduct",
+    "checkProductCode",
+    "toggleProductionStatus",
+    "importProducts",
+    "createProduct",
+    "getAllProductTypes",
+    "getActiveUnits",
+    "checkMaterialCode",
+  ],
+  viewProductType: ["getAllProductTypes"],
+  manageProductType: ["getAllProductTypes", "createProductType", "updateProductType", "checkTypeName"],
+  viewPartner: ["getAllPartners"],
+  managePartner: [
+    "getAllPartners",
+    "getPartnerCode",
+    "getPartnersByType",
+    "getAllPartnerTypes",
+    "createPartner",
+    "createPartnerType",
+    "updatePartnerType",
+    "updatedPartnerTypeStatus",
+    "updatePartner",
+  ],
+  viewWarehouse: ["getWarehouses", "getWarehouseById"],
+  manageWarehouse: [
+    "getWarehouses",
+    "getWarehouseById",
+    "addWarehouse",
+    "updateWarehouse",
+    "updateWarehouseStatus",
+    "getUsedWarehouseCategories",
+    "checkWarehouseNameAndCode",
+  ],
+  viewMaterial: [
+    "getAllMaterials",
+    "getMaterialById",
+    "downloadTemplate",
+    "exportMaterials",
+    "getAllMaterialTypes",
+    "getActiveUnits",
+                "getActiveMaterialTypes",
+                "getPartnersByType",
+  ],
+  manageMaterial: [
+    "getAllMaterials",
+    "getMaterialById",
+    "exportMaterials",
+    "downloadTemplate",
+    "getAllMaterialTypes",
+    "createMaterial",
+    "checkMaterialCode",
+    "updateMaterial",
+    "previewImport",
+    "toggleUsingStatusMaterial",
+    "importMaterials",
+    "getActiveUnits",
+    "getPartnersByType",
+    "getActiveMaterialTypes",
+  ],
+  viewMaterialType: ["getAllMaterialTypes", "getMaterialTypeById"],
+  manageMaterialType: [
+    "getAllMaterialTypes",
+    "getMaterialTypeById",
+    "createMaterialType",
+    "updateMaterialType",
+    "toggleStatusMaterialType",
+    "checkName",
+  ],
+  viewSaleOrder: ["getFilteredOrders", "getOrderById", "getMaterialsByProduct", "getInventoryDetailsByWarehouse",
+     "getInventoryDetailsByWarehouseM", "getActiveProducts", "getPartnersByType"],
+  manageSaleOrder: [
+    "getFilteredOrders",
+    "getOrderById",
+    "getMaterialsByProduct",
+    "getInventoryDetailsByWarehouse",
+    "getInventoryDetailsByWarehouseM",
+    "getActiveProducts",
+    "getPartnersByType",
+
+    "getNextOrderCode",
+    "createSaleOrder",
+    "updateSaleOrder",
+    "cancelSaleOrder",
+    "setPreparingMaterial",
+    "getAllPartners",
+    "getInventoryDetailsByWarehouse",
+    "getInventoryDetailsByWarehouseM",
+    "getActiveProducts",
+  ],
+  viewPurchaseRequest: ["getAllPurchaseRequests", "getPurchaseRequestById"],
+  managePurchaseRequest: [
+    "getAllPurchaseRequests",
+    "getPurchaseRequestById",
+    "getPartnersByMaterial",
+    "getNextRequestCode",
+    "createManualPurchaseRequest",
+    "canCreatePurchaseRequest",
+    "getAllMaterials",
+    "getAllMaterialTypes",
+    "getPartnersByType",
+  ],
+  viewPurchaseOrder: ["getAllOrdersFiltered", "getPurchaseOrderById", "getPurchaseRequestById"],
+  managePurchaseOrder: [
+    "getAllOrdersFiltered",
+    "getPurchaseOrderById",
+    "getPurchaseRequestById",
+    "getAllPurchaseRequests",
+    "createMultipleOrders",
+    "getSaleOrderByPurchaseOrder",
+  ],
+  viewUnit: ["getAllUnits"],
+  manageUnit: [
+    "getAllUnits",
+    "createUnit",
+    "toggleStatusUnit",
+    "updateUnit",
+    "checkUnitName",
+  ],
+  viewReport: [
+    "getInventoryReport",
+    "getAllActiveWarehouses",
+    "getActiveProductTypes",
+    "getActiveMaterialTypes",
+
+    "getStockMovementReport",
+    "getImportReportPaginated",
+    "getExportReport",
+  ],
+  viewReceiptNote: ["getAllGoodReceipts", "getGoodReceiptById", "getIssueNoteById", "getPurchaseOrderById"],
+  manageReceiptNote: [
+    "getAllGoodReceipts",
+    "getGoodReceiptById",
+    "getIssueNoteById",
+    "getPurchaseOrderById",
+    "createGoodReceipt",
+    "getNextNoteCode",
+    "uploadPaperEvidence",
+    "getProducts",
+    "getActiveMaterials",
+    "getAllActiveWarehouses",
+    "getPendingOrInProgressOrders",
+    "getPendingOrInProgressReceiveOutsource",
+    "getPartnersByCodePrefix",
+    "getPurchaseOrderById",
+    "getActiveProducts",
+    "getFilteredOrders",
+    "getAllMaterials"
+  ],
+  viewIssueNote: ["getAllIssueNotes", "getIssueNoteById", "getOrderById", 
+                "getMaterialsByProduct",
+                "getInventoryDetailsByWarehouse",
+                "getInventoryDetailsByWarehouseM",
+                "getActiveProducts",
+                "getPartnersByType"],
+  manageIssueNote: [
+    "getAllIssueNotes",
+    "getIssueNoteById",
+    "getOrderById",
+                "getMaterialsByProduct",
+    "createIssueNote",
+    "getNextIssueCode",
+    "uploadPaperEvidence",
+    "getProducts",
+    "getAllMaterials",
+    "getInventoryDetailsByWarehouse",
+    "getInventoryDetailsByWarehouseM",
+    "getFilteredOrders",
+    "getPartnersByType",
+    "getActiveProducts",
+    "getFilteredOrders",
+  ],
+  acceptPurchaseRequest: ["updatePurchaseRequestStatus"],
+};
+
+// Ánh xạ API sang quyền frontend
+const API_TO_FE_KEY = {
+  // Sản phẩm
   checkProductCode: "manageProduct",
   getProductById: "manageProduct",
   importProducts: "manageProduct",
-  updateOrder: "manageSaleOrder",
-  createOrder: "manageSaleOrder",
-  getOrderDetailPopup: "viewSaleOrder",
-  getAllOrders: "viewSaleOrder",
+  // Loại sản phẩm
+  getAllProductTypes: "viewProductType",
+  createProductType: "manageProductType",
+  updateProductType: "manageProductType",
+  checkTypeName: "manageProductType",
+  // Đơn hàng
+  updateSaleOrder: "manageSaleOrder",
+  createSaleOrder: "manageSaleOrder",
+  getFilteredOrders: "viewSaleOrder",
   getOrderById: "viewSaleOrder",
+  // Yêu cầu mua
+  getAllPurchaseRequests: "viewPurchaseRequest",
+  getPurchaseRequestById: "viewPurchaseRequest",
+  getNextRequestCode: "managePurchaseRequest",
+  createManualPurchaseRequest: "managePurchaseRequest",
+  updatePurchaseRequestStatus: "managePurchaseRequest",
+  canCreatePurchaseRequest: "managePurchaseRequest",
+  // Đơn mua
+  getAllOrdersFiltered: "viewPurchaseOrder",
+  createMultipleOrders: "managePurchaseOrder",
+  getSaleOrderByPurchaseOrder: "managePurchaseOrder",
+  // Đơn vị
+  getAllUnits: "viewUnit",
+  createUnit: "manageUnit",
+  toggleStatusUnit: "manageUnit",
+  updateUnit: "manageUnit",
+  checkUnitName: "manageUnit",
+  // Báo cáo
+  getInventoryReport: "viewReport",
+  getStockMovementReport: "viewReport",
+  getImportReportPaginated: "viewReport",
+  getExportReport: "viewReport",
+  // Phiếu nhập kho
+  getAllGoodReceipts: "viewReceiptNote",
+  getGoodReceiptById: "viewReceiptNote",
+  createGoodReceipt: "manageReceiptNote",
+  getNextNoteCode: "manageReceiptNote",
+  uploadPaperEvidence: "manageReceiptNote",
+  getProducts: "manageReceiptNote",
+  getActiveMaterials: "manageReceiptNote",
+  getAllActiveWarehouses: "manageReceiptNote",
+  getPendingOrInProgressOrders: "manageReceiptNote",
+  getPendingOrInProgressReceiveOutsource: "manageReceiptNote",
+  getPartnersByCodePrefix: "manageReceiptNote",
+  // Phiếu xuất kho
+  getAllIssueNotes: "viewIssueNote",
+  getIssueNoteById: "viewIssueNote",
+  createIssueNote: "manageIssueNote",
+  getNextIssueCode: "manageIssueNote",
+  getAllMaterials: "manageIssueNote",
+  getInventoryDetailsByWarehouse: "manageIssueNote",
+  getInventoryDetailsByWarehouseM: "manageIssueNote",
+  getFilteredOrders: "manageIssueNote",
+  getPartnersByType: "manageIssueNote",
+  // Duyệt yêu cầu mua
+  updatePurchaseRequestStatus: "acceptPurchaseRequest",
 };
 
 const useRole = () => {
@@ -27,6 +266,8 @@ const useRole = () => {
   const [selectedRole, setSelectedRole] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [errorRole, setErrorRole] = useState(null);
+  const [errorEditRole, setErrorEditRole] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,11 +284,78 @@ const useRole = () => {
         await Promise.all(
           rolesData.map(async (role) => {
             const rolePerms = await getRolePermissions(role.id);
+            // const permissionNames = rolePerms.permissions.map((p) => p.name);
+
+            // // Kiểm tra quyền dựa trên PermissionHierarchy
+            // const feKeys = new Set();
+            // Object.keys(PERMISSION_HIERARCHY).forEach((key) => {
+            //   const permApis = PERMISSION_HIERARCHY[key];
+            //   // Kiểm tra xem tất cả API của quyền này có trong permissionNames không
+            //   const hasAllApis = permApis.every((api) =>
+            //     permissionNames.includes(api)
+            //   );
+            //   // Nếu quyền là "view" và không có API độc quyền của "manage", ưu tiên "view"
+            //   if (hasAllApis) {
+            //     if (key.startsWith("view") || key === "acceptPurchaseRequest") {
+            //       const manageKey = key.replace("view", "manage");
+            //       const manageApis = PERMISSION_HIERARCHY[manageKey] || [];
+            //       const hasExclusiveManageApis = manageApis.some(
+            //         (api) => !permApis.includes(api) && permissionNames.includes(api)
+            //       );
+            //       if (!hasExclusiveManageApis) {
+            //         feKeys.add(key);
+            //       } else {
+            //         feKeys.add(manageKey);
+            //       }
+            //     } else if (key.startsWith("manage")) {
+            //       feKeys.add(key);
+            //     }
+            //   }
+            // });
+
+            const permissionNames = rolePerms.permissions.map((p) => p.name);
+
             const feKeys = new Set();
-            rolePerms.permissions.forEach((p) => {
-              const mappedKey = API_TO_FE_KEY[p.name];
-              if (mappedKey) feKeys.add(mappedKey);
+            Object.keys(PERMISSION_HIERARCHY).forEach((key) => {
+              const permApis = PERMISSION_HIERARCHY[key];
+              const hasAllApis = permApis.every((api) =>
+                permissionNames.includes(api)
+              );
+
+              if (hasAllApis) {
+                if (key.startsWith("view") || key === "acceptPurchaseRequest") {
+                  const manageKey = key.replace("view", "manage");
+                  const manageApis = PERMISSION_HIERARCHY[manageKey] || [];
+
+                  // Kiểm tra có quyền cơ bản (create/add)
+                  const hasBasicCreateOrAdd = manageApis.some(api =>
+                    ['create', 'add'].some(kw => api.toLowerCase().includes(kw)) &&
+                    permissionNames.includes(api)
+                  );
+
+                  if (hasBasicCreateOrAdd) {
+                    feKeys.add(manageKey);  // Chỉ add manage nếu có quyền create/add
+                  } else {
+                    feKeys.add(key);  // fallback to view
+                  }
+                } else if (key.startsWith("manage")) {
+                  const manageApis = PERMISSION_HIERARCHY[key] || [];
+                  const hasBasicCreateOrAdd = manageApis.some(api =>
+                    ['create', 'add'].some(kw => api.toLowerCase().includes(kw)) &&
+                    permissionNames.includes(api)
+                  );
+
+                  if (hasBasicCreateOrAdd) {
+                    feKeys.add(key);
+                  } else {
+                    // Nếu không có quyền create/add, downgrade thành view
+                    const viewKey = key.replace("manage", "view");
+                    feKeys.add(viewKey);
+                  }
+                }
+              }
             });
+
             setRoles((prev) =>
               prev.map((r) =>
                 r.id === role.id ? { ...r, permissionKeys: Array.from(feKeys) } : r
@@ -68,10 +376,74 @@ const useRole = () => {
   const fetchRolePermissions = useCallback(async (roleId) => {
     try {
       const rolePerms = await getRolePermissions(roleId);
+      // const permissionNames = rolePerms.permissions.map((p) => p.name);
+
+      // // Kiểm tra quyền dựa trên PermissionHierarchy
+      // const feKeys = new Set();
+      // Object.keys(PERMISSION_HIERARCHY).forEach((key) => {
+      //   const permApis = PERMISSION_HIERARCHY[key];
+      //   const hasAllApis = permApis.every((api) =>
+      //     permissionNames.includes(api)
+      //   );
+      //   if (hasAllApis) {
+      //     if (key.startsWith("view") || key === "acceptPurchaseRequest") {
+      //       const manageKey = key.replace("view", "manage");
+      //       const manageApis = PERMISSION_HIERARCHY[manageKey] || [];
+      //       const hasExclusiveManageApis = manageApis.some(
+      //         (api) => !permApis.includes(api) && permissionNames.includes(api)
+      //       );
+      //       if (!hasExclusiveManageApis) {
+      //         feKeys.add(key);
+      //       } else {
+      //         feKeys.add(manageKey);
+      //       }
+      //     } else if (key.startsWith("manage")) {
+      //       feKeys.add(key);
+      //     }
+      //   }
+      // });
+
+      const permissionNames = rolePerms.permissions.map((p) => p.name);
+
       const feKeys = new Set();
-      rolePerms.permissions.forEach((p) => {
-        const mappedKey = API_TO_FE_KEY[p.name];
-        if (mappedKey) feKeys.add(mappedKey);
+      Object.keys(PERMISSION_HIERARCHY).forEach((key) => {
+        const permApis = PERMISSION_HIERARCHY[key];
+        const hasAllApis = permApis.every((api) =>
+          permissionNames.includes(api)
+        );
+
+        if (hasAllApis) {
+          if (key.startsWith("view") || key === "acceptPurchaseRequest") {
+            const manageKey = key.replace("view", "manage");
+            const manageApis = PERMISSION_HIERARCHY[manageKey] || [];
+
+            // Kiểm tra có quyền cơ bản (create/add)
+            const hasBasicCreateOrAdd = manageApis.some(api =>
+              ['create', 'add'].some(kw => api.toLowerCase().includes(kw)) &&
+              permissionNames.includes(api)
+            );
+
+            if (hasBasicCreateOrAdd) {
+              feKeys.add(manageKey);  // Chỉ add manage nếu có quyền create/add
+            } else {
+              feKeys.add(key);  // fallback to view
+            }
+          } else if (key.startsWith("manage")) {
+            const manageApis = PERMISSION_HIERARCHY[key] || [];
+            const hasBasicCreateOrAdd = manageApis.some(api =>
+              ['create', 'add'].some(kw => api.toLowerCase().includes(kw)) &&
+              permissionNames.includes(api)
+            );
+
+            if (hasBasicCreateOrAdd) {
+              feKeys.add(key);
+            } else {
+              // Nếu không có quyền create/add, downgrade thành view
+              const viewKey = key.replace("manage", "view");
+              feKeys.add(viewKey);
+            }
+          }
+        }
       });
 
       const updatedKeys = Array.from(feKeys);
@@ -97,20 +469,40 @@ const useRole = () => {
   );
 
   const handleAddRole = useCallback(async (role) => {
+    if (!role.name.trim()) {
+      setErrorRole('Tên vai trò không được để trống!');
+      return false;
+    }
+
     try {
-      const newRole = await addRole(role);
+      const cleanedRole = { ...role, name: role.name.trim() };
+      const newRole = await addRole(cleanedRole);
       if (newRole) {
         setRoles((prev) => [...prev, { ...newRole, permissionKeys: role.permissionKeys }]);
       }
+      setErrorRole(null); // clear lỗi cũ
+      return true;
     } catch (err) {
       console.error("❌ [useRole] Lỗi khi add Role:", err);
-      throw err;
+      if (err.response?.status === 409) {
+        const errorCode = err.response.data;
+        if (errorCode === "DUPLICATE_ROLE") {
+          setErrorRole("Vai trò đã tồn tại!");
+        }
+      }
+      return false;
     }
   }, []);
 
   const handleUpdateRole = useCallback(async (id, updatedRole) => {
+    if (!updatedRole.name.trim()) {
+      setErrorEditRole('Tên vai trò không được để trống!');
+      return false;
+    }
+
     try {
-      const updated = await updateRole(id, updatedRole);
+      const cleanedRole = { ...updatedRole, name: updatedRole.name.trim() };
+      const updated = await updateRole(id, cleanedRole);
       if (updated) {
         setRoles((prev) =>
           prev.map((r) =>
@@ -121,9 +513,17 @@ const useRole = () => {
         );
         console.log("✅ [useRole] Role updated:", updated);
       }
+      setErrorEditRole(null); // clear lỗi cũ
+      return true; // ✅ báo thành công
     } catch (err) {
       console.error("❌ [useRole] Lỗi khi updateRole:", err);
-      throw err;
+      if (err.response?.status === 409) {
+        const errorCode = err.response.data;
+        if (errorCode === "DUPLICATE_ROLE") {
+          setErrorEditRole("Vai trò đã tồn tại!");
+        }
+      }
+      return false;
     }
   }, []);
 
@@ -168,13 +568,18 @@ const useRole = () => {
     selectedRole,
     loading,
     error,
+    errorRole,
+    errorEditRole,
+    PERMISSION_HIERARCHY,
+    setErrorEditRole,
+    setErrorRole,
     handleSelectRole,
     handleAddRole,
     handleUpdateRole,
     handleToggleRoleStatus,
     handleDeleteRole,
     fetchRolePermissions,
-    updateRolePermissions, // Đảm bảo hàm này được trả về
+    updateRolePermissions,
   };
 };
 

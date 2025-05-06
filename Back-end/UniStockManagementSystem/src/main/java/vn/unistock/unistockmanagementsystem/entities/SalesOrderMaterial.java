@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 @Setter
 @Entity
 @Table(name = "sales_order_materials", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"order_detail_id", "material_id"})
+        @UniqueConstraint(columnNames = {"order_id", "material_id"})
 })
 public class SalesOrderMaterial {
 
@@ -19,8 +19,8 @@ public class SalesOrderMaterial {
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_detail_id", nullable = false)
-    private SalesOrderDetail salesOrderDetail;
+    @JoinColumn(name = "order_id", nullable = false)
+    private SalesOrder salesOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "material_id", nullable = false)

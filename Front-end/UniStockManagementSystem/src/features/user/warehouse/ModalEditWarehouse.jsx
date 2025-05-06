@@ -38,7 +38,7 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
   const normalizeWarehouseName = (name) => {
     return name.replace(/\s+/g, ' ').trim(); // thay nhiều khoảng trắng bằng 1, xoá đầu/cuối
   };
-  
+
   const fetchAvailableCategories = async (warehouse, currentSelectedLabels = []) => {
     if (!warehouse) return;
 
@@ -61,6 +61,7 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
     setWarehouseCode(warehouse.warehouseCode || "");
     setWarehouseName(warehouse.warehouseName || "");
     setDescription(warehouse.warehouseDescription || "");
+    setIsActive(warehouse.isActive || "");
 
     const currentCategories = warehouse.goodCategory
       ? warehouse.goodCategory.split(", ").map(cat => cat.trim())
@@ -110,7 +111,7 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
       } else {
         delete errors.warehouseName;
       }
-    }    
+    }
 
     if (field === "warehouseDescription") {
       if (value.length > 200) {
@@ -135,12 +136,12 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
         isActive: warehouse.isActive
       });
 
-      alert("Chỉnh sửa thông tin kho thành công!");
+      onSuccess();
       fetchWarehouses();
       onClose();
     } catch (error) {
       console.error("Lỗi khi sửa thông tin kho:", error);
-      alert(error?.response?.data?.message || "Lỗi khi sửa kho!");
+      console.log(error?.response?.data?.message || "Lỗi khi sửa kho!");
     } finally {
       setLoading(false);
     }
@@ -201,7 +202,7 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
                 const rawValue = e.target.value;
                 setWarehouseName(rawValue);
                 validateFields("warehouseName", rawValue);
-              
+
                 if (rawValue.trim() && rawValue !== warehouse?.warehouseName) {
                   const result = await isWarehouseNameOrCodeTaken(rawValue.trim(), warehouseCode, warehouse.warehouseId);
                   let newErrors = { ...error };
@@ -209,7 +210,7 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
                   else delete newErrors.warehouseName;
                   setError(newErrors);
                 }
-              }}                          
+              }}
               error={!!error.warehouseName}
             />
             {error.warehouseName && <Typography variant="small" color="red">{error.warehouseName}</Typography>}
@@ -218,8 +219,8 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
 
         <div>
           <Typography variant="medium" className="text-black mb-1">
-          Phân loại hàng hóa mặc định cho kho
-          <span className="text-red-500">(*)</span>
+            Phân loại hàng hóa mặc định cho kho
+            <span className="text-red-500">(*)</span>
           </Typography>
           <Autocomplete
             multiple
@@ -252,9 +253,9 @@ const ModalEditWarehouse = ({ open, onClose, warehouse, onSuccess }) => {
             )}
             slotProps={{
               popper: {
-                  sx: { zIndex: 9999 }, // Cố định z-index trong Popper
+                sx: { zIndex: 9999 }, // Cố định z-index trong Popper
               },
-          }}
+            }}
             noOptionsText="Tất cả phân loại đã được sử dụng"
           />
 

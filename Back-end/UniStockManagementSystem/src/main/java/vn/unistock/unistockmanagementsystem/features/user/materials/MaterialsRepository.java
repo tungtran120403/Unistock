@@ -29,4 +29,20 @@ public interface MaterialsRepository extends JpaRepository<Material, Long> {
     @Query("SELECT m FROM Material m WHERE :search IS NULL OR m.materialCode LIKE %:search% OR m.materialName LIKE %:search%")
     List<Material> findByCodeOrName(@Param("search") String search);
 
+    @Query("""
+    SELECT m FROM Material m
+    WHERE (:search IS NULL OR
+           LOWER(m.materialCode) LIKE LOWER(CONCAT('%', :search, '%'))
+           OR LOWER(m.materialName) LIKE LOWER(CONCAT('%', :search, '%')))
+      AND (:statuses IS NULL OR m.isUsing IN :statuses)
+      AND (:materialTypeIds IS NULL OR m.materialType.materialTypeId IN :materialTypeIds)
+""")
+    Page<Material> searchMaterials(
+            @Param("search") String search,
+            @Param("statuses") List<Boolean> statuses,
+            @Param("materialTypeIds") List<Long> materialTypeIds,
+            Pageable pageable
+    );
+
+
 }

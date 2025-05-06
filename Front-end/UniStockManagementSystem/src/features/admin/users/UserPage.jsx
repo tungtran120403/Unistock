@@ -27,6 +27,7 @@ import TableSearch from '@/components/TableSearch';
 import Table from "@/components/Table";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SuccessAlert from "@/components/SuccessAlert";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const UserPage = () => {
   const {
@@ -35,6 +36,7 @@ const UserPage = () => {
     toggleStatus,
     totalPages,
     totalElements,
+    loading, // ✅ thêm đây
   } = useUser();
 
   const [openAddModal, setOpenAddModal] = useState(false);
@@ -49,6 +51,15 @@ const UserPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(5);
 
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
   // Mỗi lần currentPage hoặc pageSize đổi => fetch lại
   useEffect(() => {
     fetchPaginatedUsers(currentPage, pageSize);
@@ -62,7 +73,7 @@ const UserPage = () => {
       setOpenEditModal(true);
     } catch (error) {
       console.error("❌ Lỗi khi lấy thông tin user:", error);
-      alert("Không thể lấy thông tin user!");
+      console.log("Không thể lấy thông tin user!");
     }
   };
 
@@ -211,10 +222,22 @@ const UserPage = () => {
     ...user,
   }));
 
-  return (
-    <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
-      <Card className="bg-gray-50 p-7 rounded-none shadow-none">
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
 
+  return (
+    <div className="mb-8 flex flex-col gap-12">
+      <Card className="bg-gray-50 p-7 rounded-none shadow-none">
         <CardBody className="pb-2 bg-white rounded-xl">
           <PageHeader
             title="Danh sách Người Dùng"
@@ -324,7 +347,7 @@ const UserPage = () => {
         open={confirmDialogOpen.open}
         onClose={() => setConfirmDialogOpen(false)}
         onConfirm={handleConfirmToggleStatus}
-        message= {confirmDialogOpen.message}
+        message={confirmDialogOpen.message}
         confirmText="Có"
         cancelText="Không"
       />

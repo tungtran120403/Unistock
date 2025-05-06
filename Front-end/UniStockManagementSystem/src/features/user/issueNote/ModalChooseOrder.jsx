@@ -27,16 +27,17 @@ const ModalChooseOrder = ({ onClose, onOrderSelected }) => {
     onClose();
   };
 
-  // Map dữ liệu từ API: API trả về đối tượng với các trường: orderId, orderCode, partnerCode, partnerName, orderDate, note, address, phoneNumber, contactName, orderDetails,...
-  // Lưu luôn full order để sau khi chọn có thể fill đầy đủ thông tin.
-  const mappedOrders = saleOrders.map((order) => ({
-    id: order.orderId,
-    code: order.orderCode || "N/A",
-    customer: order.partnerName || "N/A",
-    date: order.orderDate || null,
-    note: order.note || "N/A", // Add note field
-    fullOrder: order, // lưu toàn bộ đối tượng đơn hàng
-  }));
+  // Map dữ liệu từ API và lọc chỉ các đơn hàng có trạng thái PREPARING_MATERIAL hoặc PARTIALLY_ISSUED
+  const mappedOrders = saleOrders
+    .filter(order => ["PREPARING_MATERIAL", "PARTIALLY_ISSUED"].includes(order.status))
+    .map((order) => ({
+      id: order.orderId,
+      code: order.orderCode || "N/A",
+      customer: order.partnerName || "N/A",
+      date: order.orderDate || null,
+      note: order.note || "N/A", // Add note field
+      fullOrder: order, // lưu toàn bộ đối tượng đơn hàng
+    }));
 
   const filteredOrders = mappedOrders.filter(
     (order) =>

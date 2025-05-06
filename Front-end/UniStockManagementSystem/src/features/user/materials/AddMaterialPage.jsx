@@ -7,14 +7,13 @@ import {
     Typography,
 } from "@material-tailwind/react";
 import { TextField, Button as MuiButton, Autocomplete, IconButton, Divider } from '@mui/material';
-import { checkMaterialCodeExists, fetchMaterialCategories, createMaterial } from "./materialService";
+import { checkMaterialCodeExists, createMaterial } from "./materialService";
 import { fetchActiveUnits } from "../unit/unitService";
 import PageHeader from '@/components/PageHeader';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { getPartnersByType } from "../partner/partnerService";
 import { fetchActiveMaterialTypes } from "../materialType/materialTypeService";
-
-
+import CircularProgress from '@mui/material/CircularProgress';
 
 const SUPPLIER_TYPE_ID = 2;
 
@@ -29,13 +28,14 @@ const AddMaterialPage = () => {
         isActive: 'true',
         supplierIds: [],
         image: null,
-        imageUrl: null
+        imageUrl: null,
+        lowStockThreshold: '',
     });
 
     const [loading, setLoading] = useState(false);
     const [materialCodeError, setMaterialCodeError] = useState("");
     const [validationErrors, setValidationErrors] = useState({});
-    const [supplierError, setSupplierError] = useState(""); // Không hiển thị lỗi ban đầu
+    const [supplierError, setSupplierError] = useState("");
     const [units, setUnits] = useState([]);
     const [materialCategories, setMaterialCategories] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
@@ -47,12 +47,12 @@ const AddMaterialPage = () => {
             try {
                 const [unitsData, activeCategoriesData, suppliersData] = await Promise.all([
                     fetchActiveUnits(),
-                    fetchActiveMaterialTypes(), // Thay thế fetchMaterialCategories() bằng fetchActiveMaterialTypes()
+                    fetchActiveMaterialTypes(),
                     getPartnersByType(SUPPLIER_TYPE_ID)
                 ]);
 
                 setUnits(Array.isArray(unitsData) ? unitsData : []);
-                setMaterialCategories(activeCategoriesData || []); // Điều chỉnh để phù hợp với định dạng dữ liệu trả về
+                setMaterialCategories(activeCategoriesData || []);
 
                 const mappedSuppliers = (suppliersData?.partners || [])
                     .map((s) => {
@@ -114,7 +114,6 @@ const AddMaterialPage = () => {
             ...prev,
             supplierIds: selectedIds
         }));
-        // Xóa lỗi validation khi chọn ít nhất một nhà cung cấp
         if (selectedIds.length > 0) {
             setValidationErrors(prev => ({
                 ...prev,
@@ -153,7 +152,13 @@ const AddMaterialPage = () => {
                 formData.append("description", newMaterial.description?.trim() || "");
                 formData.append("unitId", parseInt(newMaterial.unitId));
                 formData.append("typeId", parseInt(newMaterial.typeId));
-                formData.append("isActive", true);
+                formData.append("isUsingActive", newMaterial.isActive === 'true');
+
+                // Chỉ gửi lowStockThreshold nếu giá trị > 0
+                const lowStockThresholdValue = parseFloat(newMaterial.lowStockThreshold);
+                if (lowStockThresholdValue > 0) {
+                    formData.append("lowStockThreshold", lowStockThresholdValue);
+                }
 
                 newMaterial.supplierIds.forEach(id => {
                     formData.append("supplierIds", id);
@@ -180,6 +185,27 @@ const AddMaterialPage = () => {
     const isCreateDisabled = () => {
         return loading || !!materialCodeError;
     };
+
+    const [dotCount, setDotCount] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+                <div className="flex flex-col items-center">
+                    <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+                    <Typography variant="body1">
+                        Đang tải{'.'.repeat(dotCount)}
+                    </Typography>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="mb-8 flex flex-col gap-12">
@@ -256,6 +282,28 @@ const AddMaterialPage = () => {
 
                             <div>
                                 <Typography variant="medium" className="mb-1 text-black">
+                                    Ngưỡng tồn kho thấp
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    hiddenLabel
+                                    type="number"
+                                    color="success"
+                                    value={newMaterial.lowStockThreshold}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        // Không cho phép nhập số âm
+                                        if (value === '' || parseFloat(value) >= 0) {
+                                            setNewMaterial({ ...newMaterial, lowStockThreshold: value });
+                                        }
+                                    }}
+                                    inputProps={{ min: 0 }} // Đặt giá trị tối thiểu là 0
+                                />
+                            </div>
+
+                            <div>
+                                <Typography variant="medium" className="mb-1 text-black">
                                     Mô tả
                                 </Typography>
                                 <TextField
@@ -270,6 +318,8 @@ const AddMaterialPage = () => {
                                     onChange={(e) => setNewMaterial({ ...newMaterial, description: e.target.value })}
                                 />
                             </div>
+
+
                         </div>
 
                         <div className="flex flex-col gap-4">

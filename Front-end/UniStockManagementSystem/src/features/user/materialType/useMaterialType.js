@@ -11,11 +11,20 @@ const useMaterialType = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalElements, setTotalElements] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [filterState, setFilterState] = useState({
+        search: undefined,
+        statuses: undefined,
+    });    
 
-    const fetchMaterialTypes = useCallback(async (page = 0, size = 10) => {
+    const fetchMaterialTypes = useCallback(async (page = 0, size = 10, filters = filterState, showLoading = true) => {
         try {
-            setLoading(true);
-            const data = await fetchMaterialTypesService(page, size);
+            if (showLoading) setLoading(true);    
+            const data = await fetchMaterialTypesService({
+                page,
+                size,
+                search: filters?.search,
+                statuses: filters?.statuses,
+            });    
 
             if (Array.isArray(data)) {
                 setMaterialTypes(data);
@@ -37,9 +46,14 @@ const useMaterialType = () => {
             setTotalElements(0);
             console.error("❌ Lỗi khi lấy danh sách loại nguyên liệu:", error.message);
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     }, []);
+
+    const applyFilters = (filters, page = 0, size = 10, showLoading = false) => {
+        setFilterState(filters);
+        fetchMaterialTypes(page, size, filters, showLoading);
+    };     
 
     const toggleStatus = async (materialTypeId, currentStatus) => {
         try {
@@ -89,6 +103,7 @@ const useMaterialType = () => {
         totalPages,
         totalElements,
         loading,
+        applyFilters
     };
 };
 

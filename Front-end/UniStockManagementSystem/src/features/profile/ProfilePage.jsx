@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { TextField, Button as MuiButton, Avatar, Chip, Link } from '@mui/material';
 import { Card, Button, CardBody, Typography } from "@material-tailwind/react";
 import { FaEdit } from "react-icons/fa";
@@ -6,6 +6,8 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PageHeader from '@/components/PageHeader';
 import ChangePasswordModal from './ChangePasswordModal';
 import useProfile from './useProfile';
+import SuccessAlert from "@/components/SuccessAlert";
+import CircularProgress from '@mui/material/CircularProgress';
 
 const Profile = () => {
   const {
@@ -49,6 +51,56 @@ const Profile = () => {
     }
   };
 
+  const onChangePasswordSave = async () => {
+    const isSuccess = await handleChangePassword();
+    if (isSuccess) {
+      setAlertMessage('Đổi mật khẩu thành công!');
+      setSuccessAlert(true);
+    }
+  };
+
+  const [successAlert, setSuccessAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState(false);
+
+  useEffect(() => {
+    const successFlag = localStorage.getItem('avatarUploadSuccess');
+    if (successFlag === 'true') {
+      setAlertMessage('Cập nhật ảnh đại diện thành công!');
+      setSuccessAlert(true);
+      localStorage.removeItem('avatarUploadSuccess'); // xoá để không hiện lại lần sau
+    }
+  }, []);
+
+  const onSaveClick = async () => {
+    const isSuccess = await handleSave();
+    if (isSuccess) {
+      setAlertMessage('Cập nhật thông tin cá nhân thành công!');
+      setSuccessAlert(true);
+    }
+  };
+
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev < 3 ? prev + 1 : 0));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading && !isEditing) {
+    return (
+      <div className="flex justify-center items-center" style={{ height: '60vh' }}>
+        <div className="flex flex-col items-center">
+          <CircularProgress size={50} thickness={4} sx={{ mb: 2, color: '#0ab067' }} />
+          <Typography variant="body1">
+            Đang tải{'.'.repeat(dotCount)}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-8 flex flex-col gap-12" style={{ height: 'calc(100vh-100px)' }}>
       <Card className="bg-gray-50 p-7 rounded-none shadow-none">
@@ -62,7 +114,16 @@ const Profile = () => {
 
           <div className='flex px-10 gap-20 mb-6 mt-10'>
             <div className='flex flex-col gap-4 items-center'>
-              <Avatar src={profile.avatar} sx={{ width: 200, height: 200 }} />
+              {/* <Avatar src={profile.avatar} sx={{ width: 200, height: 200 }} /> */}
+              <div className='relative'>
+                <Avatar src={profile.avatar} sx={{ width: 200, height: 200 }} />
+                {loading && (
+                  <div className="absolute inset-0 bg-white/60 flex items-center justify-center rounded-full">
+                    <CircularProgress size={48} color="success" />
+                  </div>
+                )}
+              </div>
+
               <Button
                 size="lg"
                 color="white"
@@ -150,6 +211,11 @@ const Profile = () => {
                     },
                   }}
                 />
+                {error && (
+                  <Typography color="red" className="text-sm">
+                    {error}
+                  </Typography>
+                )}
               </div>
               <div>
                 <Typography variant="small" className="mb-2 font-bold text-gray-900">
@@ -184,10 +250,10 @@ const Profile = () => {
                 {rolesArray.length > 0 ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {rolesArray
-  .filter((role) => role.toLowerCase() !== "user")
-  .map((role, index) => (
-    <Chip key={index} label={role} variant="outlined" color="primary" />
-))}
+                      .filter((role) => role.toLowerCase() !== "user")
+                      .map((role, index) => (
+                        <Chip key={index} label={role} variant="outlined" color="primary" />
+                      ))}
 
                   </div>
                 ) : (
@@ -218,7 +284,7 @@ const Profile = () => {
                       variant="text"
                       className="bg-[#0ab067] hover:bg-[#089456]/90 shadow-none text-white font-medium py-2 px-4 rounded-[4px] transition-all duration-200 ease-in-out"
                       ripple={true}
-                      onClick={handleSave}
+                      onClick={onSaveClick}
                     >
                       Lưu
                     </Button>
@@ -232,7 +298,7 @@ const Profile = () => {
       <ChangePasswordModal
         open={openChangePassword}
         onClose={() => setOpenChangePassword(false)}
-        onSave={handleChangePassword}
+        onSave={onChangePasswordSave}
         currentPassword={currentPassword}
         setCurrentPassword={setCurrentPassword}
         newPassword={newPassword}
@@ -247,6 +313,13 @@ const Profile = () => {
         setErrorConfirmPassword={setErrorConfirmPassword}
         resetPasswordForm={resetPasswordForm}
       />
+
+      <SuccessAlert
+        open={successAlert}
+        onClose={() => setSuccessAlert(false)}
+        message={alertMessage}
+      />
+
     </div>
   );
 };

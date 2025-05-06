@@ -35,12 +35,16 @@ public class IssueNoteController {
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllIssueNotes(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) List<String> categories
     ) {
-        // Gọi service để lấy dữ liệu Page<IssueNoteDTO>
-        Page<IssueNoteDTO> notesPage = issueNoteService.getAllIssueNotes(page, size);
+        Page<IssueNoteDTO> notesPage = issueNoteService.getAllIssueNotesFiltered(
+                page, size, search, startDate, endDate, categories
+        );
 
-        // Tạo cấu trúc JSON trả về tương tự: { content, totalPages, totalElements }
         Map<String, Object> response = new HashMap<>();
         response.put("content", notesPage.getContent());
         response.put("totalPages", notesPage.getTotalPages());

@@ -29,6 +29,7 @@ public interface SaleOrdersMapper {
     @Mapping(source = "orderDate",          target = "orderDate")
     @Mapping(source = "note",               target = "note")
     @Mapping(source = "details",            target = "orderDetails")
+    @Mapping(source = "materials", target = "materials")
     @Mapping(source = "rejectionReason",    target = "rejectionReason")
     @Mapping(
             target = "partnerCode",
@@ -68,6 +69,7 @@ public interface SaleOrdersMapper {
     @Mapping(source = "orderDate",     target = "orderDate")
     @Mapping(source = "note",          target = "note")
     @Mapping(source = "orderDetails",  target = "details")
+    @Mapping(source = "materials", target = "materials")
     @Mapping(target  = "createdByUser", ignore = true)
     @Mapping(source = "rejectionReason", target = "rejectionReason")
     SalesOrder toEntity(SaleOrdersDTO dto,

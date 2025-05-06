@@ -3,10 +3,12 @@ package vn.unistock.unistockmanagementsystem.features.user.purchaseOrder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.unistock.unistockmanagementsystem.features.user.saleOrders.SaleOrdersDTO;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 
 import java.util.List;
@@ -24,9 +26,12 @@ public class PurchaseOrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String status
-    ) {
-        Page<PurchaseOrderDTO> orders = purchaseOrderService.getAllOrdersFiltered(page, size, search, status);
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
+
+            ) {
+        Page<PurchaseOrderDTO> orders = purchaseOrderService.getAllOrdersFiltered(page, size, search, status, startDate, endDate);
         Map<String, Object> response = new HashMap<>();
         response.put("content", orders.getContent());
         response.put("totalPages", orders.getTotalPages());
@@ -35,7 +40,7 @@ public class PurchaseOrderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PurchaseOrderDTO> getOrderById(@PathVariable Long id) {
+    public ResponseEntity<PurchaseOrderDTO> getPurchaseOrderById(@PathVariable Long id) {
         return ResponseEntity.ok(purchaseOrderService.getOrderById(id));
     }
 

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import vn.unistock.unistockmanagementsystem.entities.ProductType;
 import vn.unistock.unistockmanagementsystem.features.user.productTypes.ProductTypeRepository;
+import org.springframework.data.domain.Pageable;  // ✅
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,11 +17,12 @@ public class ProductTypeService {
     private final ProductTypeRepository productTypeRepository;
     private final ProductTypeMapper productTypeMapper = ProductTypeMapper.INSTANCE;
 
-    public Page<ProductTypeDTO> getAllProductTypes(Pageable pageable) {
-        Page<ProductType> productTypes = productTypeRepository.findAll(pageable);
-        Page<ProductTypeDTO> productTypeDTOs = productTypes.map(productTypeMapper::toDTO);
-        return productTypeDTOs;
+    public Page<ProductTypeDTO> getAllProductTypes(Pageable pageable, String search, Boolean status) {
+        Page<ProductType> productTypes = productTypeRepository
+                .searchProductTypes(search, status, pageable);
+        return productTypes.map(productTypeMapper::toDTO);
     }
+
 
     public ProductTypeDTO toggleStatus(Long typeId, Boolean newStatus) {
         ProductType productType = productTypeRepository.findById(typeId)

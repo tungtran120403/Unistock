@@ -35,11 +35,22 @@ public class ProductsService {
     private final ProductMaterialsMapper productMaterialsMapper;
     private final AzureBlobService azureBlobService;
 
-    public Page<ProductsDTO> getAllProducts(int page, int size) {
+    public Page<ProductsDTO> getAllProducts(int page, int size,
+                                         String search,
+                                         List<Boolean> statuses,
+                                         List<Long> typeIds) {
+
+        if (statuses != null && statuses.isEmpty()) statuses = null;
+        if (typeIds  != null && typeIds.isEmpty())  typeIds  = null;
+
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> productPage = productsRepository.findAll(pageable);
-        return productPage.map(productsMapper::toDTO);
+
+        Page<Product> pageEntity = productsRepository
+                .searchProducts(search, statuses, typeIds, pageable);
+
+        return pageEntity.map(productsMapper::toDTO);
     }
+
 
     @Transactional
     public Product createProduct(ProductsDTO dto) throws IOException {

@@ -257,7 +257,7 @@ public class PurchaseOrderService {
                 .toList();
     }
 
-    public Page<PurchaseOrderDTO> getAllOrdersFiltered(int page, int size, String search, String status) {
+    public Page<PurchaseOrderDTO> getAllOrdersFiltered(int page, int size, String search, String status, LocalDateTime startDate, LocalDateTime endDate) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "orderDate"));
         PurchaseOrder.OrderStatus orderStatus = null;
         if (status != null && !status.trim().isEmpty()) {
@@ -267,7 +267,9 @@ public class PurchaseOrderService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status value: " + status);
             }
         }
-        Page<PurchaseOrder> orders = purchaseOrderRepository.searchFilteredOrders(search, orderStatus, pageable);
+        Page<PurchaseOrder> orders = purchaseOrderRepository.searchFilteredOrders(
+                search, orderStatus, startDate, endDate, pageable
+        );
         return orders.map(purchaseOrderMapper::toDTO);
     }
 

@@ -8,6 +8,7 @@ const useWarehouse = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [currentPage, setCurrentPage] = useState(1); 
   const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(true);
 
   const fetchPaginatedWarehouses = async (page = 1, size = pageSize, search = "", isActive = null) => {
     try {
@@ -20,6 +21,8 @@ const useWarehouse = () => {
       setPageSize(size);
     } catch (error) {
       console.error("Error fetching warehouses:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,8 +43,11 @@ const useWarehouse = () => {
       await updateWarehouseStatus(warehouseId, newStatus);
       await fetchPaginatedWarehouses(currentPage, pageSize);
     } catch (error) {
-      alert(error?.response?.data?.message || "Lỗi khi cập nhật trạng thái kho");
       console.error("Error updating warehouse status:", error);
+      return {
+        success: false,
+        message: error?.response?.data?.message || "Lỗi khi cập nhật trạng thái kho",
+    };
     }    
 };
 
@@ -87,6 +93,7 @@ const useWarehouse = () => {
     toggleStatus,
     totalPages,
     totalElements,
+    loading,
     addWarehouse,
     editWarehouse,
     fetchListWarehouses,

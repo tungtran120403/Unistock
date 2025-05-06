@@ -40,9 +40,6 @@ public class SalesOrderDetail {
     @Column(name = "remaining_quantity", nullable = false)
     private Integer remainingQuantity;
 
-    @OneToMany(mappedBy = "salesOrderDetail", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SalesOrderMaterial> materials;
-
     @PrePersist
     @PreUpdate
     private void updateRemainingQuantity() {

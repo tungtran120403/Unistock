@@ -21,8 +21,10 @@ public class MaterialTypeService {
     private final MaterialTypeRepository materialTypeRepository;
     private final MaterialTypeMapper materialTypeMapper;
 
-    public Page<MaterialTypeDTO> getAllMaterialTypes(Pageable pageable) {
-        return materialTypeRepository.findAll(pageable).map(materialTypeMapper::toDTO);
+    public Page<MaterialTypeDTO> getAllMaterialTypes(Pageable pageable, String search, Boolean status) {
+        Page<MaterialType> materialTypes = materialTypeRepository
+                .searchMaterialTypes(search, status, pageable);
+        return materialTypes.map(materialTypeMapper::toDTO);
     }
 
     public List<MaterialTypeDTO> getActiveMaterialTypes() {
@@ -99,4 +101,5 @@ public class MaterialTypeService {
         }
         return materialTypeRepository.existsByNameIgnoreCase(normalizedName);
     }
+
 }

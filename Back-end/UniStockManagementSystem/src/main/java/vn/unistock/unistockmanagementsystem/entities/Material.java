@@ -43,6 +43,9 @@ public class Material {
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "low_stock_threshold")
+    private Double lowStockThreshold;
+
     @OneToMany(mappedBy = "material", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<MaterialPartner> materialPartners = new ArrayList<>();
 

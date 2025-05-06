@@ -1,6 +1,7 @@
 package vn.unistock.unistockmanagementsystem.features.admin.role;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import vn.unistock.unistockmanagementsystem.entities.Permission;
 import vn.unistock.unistockmanagementsystem.entities.Role;
@@ -29,10 +30,10 @@ public class RoleService {
                 .map(roleMapper::toDTO)
                 .collect(Collectors.toList());
     }
-
+    @CacheEvict(value = "users", allEntries = true)
     public RoleDTO createRole(RoleDTO dto) {
         if (roleRepository.existsByRoleName(dto.getName())) {
-            throw new RuntimeException("Vai trò đã tồn tại");
+            throw new IllegalArgumentException("DUPLICATE_ROLE");
         }
         Role entity = roleMapper.toEntity(dto);
 
@@ -77,10 +78,16 @@ public class RoleService {
         existingRole = roleRepository.save(existingRole);
         return roleMapper.toDTO(existingRole);
     }
-
+    @CacheEvict(value = "users", allEntries = true)
     public RoleDTO updateRole(Long id, RoleDTO dto) {
         Role existingRole = roleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy vai trò"));
+
+        // ✅ Check trùng tên với vai trò khác
+        if (roleRepository.existsByRoleName(dto.getName()) &&
+                !existingRole.getRoleName().equals(dto.getName())) {
+            throw new IllegalArgumentException("DUPLICATE_ROLE");
+        }
 
         existingRole.setRoleName(dto.getName());
         existingRole.setDescription(dto.getDescription());
