@@ -61,7 +61,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
 
-        cfg.setAllowedOriginPatterns(List.of("*"));
+        cfg.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "https://happy-glacier-0b250c700.6.azurestaticapps.net",
+                "https://unistock.online"
+        ));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));                    // cho mọi header
         cfg.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
