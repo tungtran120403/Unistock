@@ -19,7 +19,7 @@ spring:
 
 app:
   cors:
-    allowed-origins: "http://localhost:3000,https://happy-glacier-0b250c700.6.azurestaticapps.net,https://unistock.online"
+    allowed-origins: "*"
   file:
     images:
       location: public/images/
